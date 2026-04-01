@@ -6,7 +6,29 @@ require('dotenv').config();
 const app = express();
 
 // Middleware
-app.use(cors());
+// CORS Configuration - Allow requests from frontend
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5000',
+      'https://kl-pro.vercel.app',
+      'https://kl-pro-client.vercel.app',
+      origin // Allow current origin in development
+    ];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
