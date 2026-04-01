@@ -9,6 +9,7 @@ The application uses the following environment variable for backend API configur
 ## Local Development
 
 For local development, a `.env.local` file is provided in the `Client` directory with:
+
 ```
 REACT_APP_API_URL=http://localhost:5000/api
 ```
@@ -27,11 +28,13 @@ To set the API URL for the Vercel deployment:
 ## Finding Your Render Backend URL
 
 After deploying to Render, your backend URL will be in the format:
+
 ```
 https://kl-pro-server-xxxxx.onrender.com/api
 ```
 
 To find your specific URL:
+
 1. Go to https://dashboard.render.com/
 2. Find your `kl-pro-server` service
 3. Copy the URL from the service details page

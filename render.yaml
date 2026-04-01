@@ -3,9 +3,8 @@ services:
     name: kl-pro-server
     runtime: node
     plan: free
-    root: Server
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: cd Server && npm install --production
+    startCommand: cd Server && node server.js
     envVars:
       - key: MONGODB_URI
         sync: false
