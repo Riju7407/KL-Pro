@@ -123,8 +123,7 @@ function AdminDashboard() {
       throw new Error('Failed to fetch service statistics');
     }
 
-    const data = await response.json();
-    setServiceStats(data.statistics);
+    // Service statistics fetched but not currently displayed
   };
 
   const handleDeleteUser = async (userId) => {
