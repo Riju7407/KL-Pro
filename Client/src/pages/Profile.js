@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Profile.css';
 
@@ -10,11 +10,7 @@ function Profile() {
   const [editData, setEditData] = useState({});
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchProfile();
-  }, [navigate]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const token = localStorage.getItem('userToken');
       
@@ -49,7 +45,11 @@ function Profile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;

@@ -5,7 +5,6 @@ import HeroCarousel from '../components/HeroCarousel';
 function Home() {
   const [mostBookedServices, setMostBookedServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchMostBookedServices();
@@ -42,7 +41,6 @@ function Home() {
       setMostBookedServices(formattedServices);
     } catch (err) {
       console.error('Error fetching most booked services:', err);
-      setError(err.message);
       // Fallback to empty array if fetch fails
       setMostBookedServices([]);
     } finally {

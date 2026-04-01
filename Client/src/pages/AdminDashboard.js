@@ -4,11 +4,9 @@ import AdminServicesSection from '../components/AdminServicesSection';
 import './AdminDashboard.css';
 
 function AdminDashboard() {
-  const [admin, setAdmin] = useState(null);
   const [users, setUsers] = useState([]);
   const [services, setServices] = useState([]);
   const [statistics, setStatistics] = useState(null);
-  const [serviceStats, setServiceStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -31,8 +29,7 @@ function AdminDashboard() {
       fetchAdminProfile(),
       fetchUsers(),
       fetchStatistics(),
-      fetchServices(),
-      fetchServiceStatistics()
+      fetchServices()
     ]).catch(err => {
       setError(err.message);
       if (err.message.includes('401')) {
@@ -45,19 +42,20 @@ function AdminDashboard() {
 
   const fetchAdminProfile = async () => {
     const token = localStorage.getItem('adminToken');
-    const response = await fetch('http://localhost:5000/api/admin/profile', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
+    try {
+      const response = await fetch('http://localhost:5000/api/admin/profile', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch admin profile');
       }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch admin profile');
+    } catch (err) {
+      console.error('Error fetching admin profile:', err);
     }
-
-    const data = await response.json();
-    setAdmin(data.admin);
   };
 
   const fetchUsers = async () => {

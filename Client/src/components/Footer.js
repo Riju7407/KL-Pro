@@ -66,10 +66,10 @@ function Footer() {
             <div className="footer-section">
               <h3>Support & Info</h3>
               <ul className="footer-links">
-                <li><a href="#">Help Center</a></li>
-                <li><a href="#">FAQs</a></li>
-                <li><a href="#">Privacy Policy</a></li>
-                <li><a href="#">Terms & Conditions</a></li>
+                <li><a href="javascript:void(0)">Help Center</a></li>
+                <li><a href="javascript:void(0)">FAQs</a></li>
+                <li><a href="javascript:void(0)">Privacy Policy</a></li>
+                <li><a href="javascript:void(0)">Terms & Conditions</a></li>
               </ul>
             </div>
 
@@ -82,10 +82,10 @@ function Footer() {
               </div>
               <div className="social-links-wrapper">
                 <div className={`social-links ${showSocial ? 'show' : 'hide'}`}>
-                  <a href="#" title="Facebook" className="social-icon facebook">f</a>
-                  <a href="#" title="Instagram" className="social-icon instagram">📷</a>
-                  <a href="#" title="Twitter" className="social-icon twitter">𝕏</a>
-                  <a href="#" title="LinkedIn" className="social-icon linkedin">in</a>
+                <a href="javascript:void(0)" title="Facebook" className="social-icon facebook">f</a>
+                <a href="javascript:void(0)" title="Instagram" className="social-icon instagram">📷</a>
+                <a href="javascript:void(0)" title="Twitter" className="social-icon twitter">𝕏</a>
+                <a href="javascript:void(0)" title="LinkedIn" className="social-icon linkedin">in</a>
                 </div>
                 {showToggle && (
                   <button 
