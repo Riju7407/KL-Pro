@@ -4,6 +4,9 @@
   "outputDirectory": "Client/build",
   "framework": "react-router",
   "regions": ["iad1"],
+  "env": {
+    "REACT_APP_API_URL": "@react-app-api-url"
+  },
   "git": {
     "deploymentEnabled": {
       "main": true

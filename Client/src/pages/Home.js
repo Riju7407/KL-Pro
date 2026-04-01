@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Home.css';
 import HeroCarousel from '../components/HeroCarousel';
+import API_BASE_URL from '../config/apiConfig';
 
 function Home() {
   const [mostBookedServices, setMostBookedServices] = useState([]);
@@ -13,7 +14,7 @@ function Home() {
   const fetchMostBookedServices = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/services/most-booked', {
+      const response = await fetch(`${API_BASE_URL}/services/most-booked`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

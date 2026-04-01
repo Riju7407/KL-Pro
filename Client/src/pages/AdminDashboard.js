@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminServicesSection from '../components/AdminServicesSection';
+import API_BASE_URL from '../config/apiConfig';
 import './AdminDashboard.css';
 
 function AdminDashboard() {
@@ -43,7 +44,7 @@ function AdminDashboard() {
   const fetchAdminProfile = async () => {
     const token = localStorage.getItem('adminToken');
     try {
-      const response = await fetch('http://localhost:5000/api/admin/profile', {
+      const response = await fetch(`${API_BASE_URL}/admin/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -60,7 +61,7 @@ function AdminDashboard() {
 
   const fetchUsers = async () => {
     const token = localStorage.getItem('adminToken');
-    const response = await fetch('http://localhost:5000/api/admin/users', {
+    const response = await fetch(`${API_BASE_URL}/admin/users`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -77,7 +78,7 @@ function AdminDashboard() {
 
   const fetchStatistics = async () => {
     const token = localStorage.getItem('adminToken');
-    const response = await fetch('http://localhost:5000/api/admin/users/stats', {
+    const response = await fetch(`${API_BASE_URL}/admin/users/stats`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -94,7 +95,7 @@ function AdminDashboard() {
 
   const fetchServices = async () => {
     const token = localStorage.getItem('adminToken');
-    const response = await fetch('http://localhost:5000/api/admin/services', {
+    const response = await fetch(`${API_BASE_URL}/admin/services`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`

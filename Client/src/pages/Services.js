@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Services.css';
+import API_BASE_URL from '../config/apiConfig';
 
 function Services() {
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -15,7 +16,7 @@ function Services() {
   const fetchServices = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/services', {
+      const response = await fetch(`${API_BASE_URL}/services`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

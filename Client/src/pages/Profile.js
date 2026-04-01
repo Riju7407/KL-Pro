@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import API_BASE_URL from '../config/apiConfig';
 import './Profile.css';
 
 function Profile() {
@@ -19,7 +20,7 @@ function Profile() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
