@@ -139,7 +139,7 @@ function AdminDashboard() {
   const handleUpdateUser = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/users/${editingUser._id}`, {
+      const response = await fetch(`\/api/admin/users/${editingUser._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -191,7 +191,7 @@ function AdminDashboard() {
   const handleUpdateService = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/services/${editingService._id}`, {
+      const response = await fetch(`\/api/admin/services/${editingService._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -217,7 +217,7 @@ function AdminDashboard() {
   const handleCreateService = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('http://localhost:5000/api/admin/services', {
+      const response = await fetch('\/api/admin/services', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -243,7 +243,7 @@ function AdminDashboard() {
   const handleToggleMostBooked = async (serviceId) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`http://localhost:5000/api/admin/services/${serviceId}/most-booked`, {
+      const response = await fetch(`\/api/admin/services/${serviceId}/most-booked`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -266,7 +266,7 @@ function AdminDashboard() {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      await fetch('http://localhost:5000/api/admin/logout', {
+      await fetch('\/api/admin/logout', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
