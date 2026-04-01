@@ -8,7 +8,6 @@
     "client": "cd Client && npm start",
     "server": "cd Server && npm run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build": "cd Client && npm install && npm run build",
     "start": "cd Client && npm start"
   },
   "keywords": [
