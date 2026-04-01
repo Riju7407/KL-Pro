@@ -1,0 +1,62 @@
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Please provide a name'],
+    },
+    email: {
+      type: String,
+      required: [true, 'Please provide an email'],
+      unique: true,
+      lowercase: true,
+      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email'],
+    },
+    password: {
+      type: String,
+      required: [true, 'Please provide a password'],
+      minlength: 6,
+      select: false,
+    },
+    phone: {
+      type: String,
+    },
+    address: {
+      type: String,
+    },
+    city: {
+      type: String,
+    },
+    profileImage: {
+      type: String,
+      default: null,
+    },
+    userType: {
+      type: String,
+      enum: ['customer', 'professional', 'admin'],
+      default: 'customer',
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    rating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    reviews: [
+      {
+        reviewer: mongoose.Schema.Types.ObjectId,
+        rating: Number,
+        comment: String,
+        date: Date,
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model('User', userSchema);

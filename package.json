@@ -1,0 +1,25 @@
+{
+  "name": "kl-pro",
+  "version": "1.0.0",
+  "description": "Home Services Booking Platform - MERN Stack",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "npm install && cd Client && npm install && cd ../Server && npm install",
+    "client": "cd Client && npm start",
+    "server": "cd Server && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "cd Client && npm run build",
+    "start": "cd Client && npm start"
+  },
+  "keywords": [
+    "mern",
+    "services",
+    "booking",
+    "home-services"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}
