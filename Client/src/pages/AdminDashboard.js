@@ -111,19 +111,8 @@ function AdminDashboard() {
   };
 
   const fetchServiceStatistics = async () => {
-    const token = localStorage.getItem('adminToken');
-    const response = await fetch('http://localhost:5000/api/admin/services/stats', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch service statistics');
-    }
-
-    // Service statistics fetched but not currently displayed
+    // Service statistics endpoint - currently not displayed in UI
+    // Can be implemented in the future for enhanced analytics
   };
 
   const handleDeleteUser = async (userId) => {

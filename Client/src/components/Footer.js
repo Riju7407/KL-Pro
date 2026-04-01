@@ -66,10 +66,10 @@ function Footer() {
             <div className="footer-section">
               <h3>Support & Info</h3>
               <ul className="footer-links">
-                <li><a href="javascript:void(0)">Help Center</a></li>
-                <li><a href="javascript:void(0)">FAQs</a></li>
-                <li><a href="javascript:void(0)">Privacy Policy</a></li>
-                <li><a href="javascript:void(0)">Terms & Conditions</a></li>
+                <li><button className="footer-link-btn">Help Center</button></li>
+                <li><button className="footer-link-btn">FAQs</button></li>
+                <li><button className="footer-link-btn">Privacy Policy</button></li>
+                <li><button className="footer-link-btn">Terms & Conditions</button></li>
               </ul>
             </div>
 
@@ -82,10 +82,10 @@ function Footer() {
               </div>
               <div className="social-links-wrapper">
                 <div className={`social-links ${showSocial ? 'show' : 'hide'}`}>
-                <a href="javascript:void(0)" title="Facebook" className="social-icon facebook">f</a>
-                <a href="javascript:void(0)" title="Instagram" className="social-icon instagram">📷</a>
-                <a href="javascript:void(0)" title="Twitter" className="social-icon twitter">𝕏</a>
-                <a href="javascript:void(0)" title="LinkedIn" className="social-icon linkedin">in</a>
+                <button className="social-icon facebook" title="Facebook">f</button>
+                <button className="social-icon instagram" title="Instagram">📷</button>
+                <button className="social-icon twitter" title="Twitter">𝕏</button>
+                <button className="social-icon linkedin" title="LinkedIn">in</button>
                 </div>
                 {showToggle && (
                   <button 
