@@ -110,11 +110,6 @@ function AdminDashboard() {
     setServices(data.services || []);
   };
 
-  const fetchServiceStatistics = async () => {
-    // Service statistics endpoint - currently not displayed in UI
-    // Can be implemented in the future for enhanced analytics
-  };
-
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Are you sure you want to delete this user?')) {
       return;
