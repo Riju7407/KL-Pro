@@ -27,7 +27,7 @@ function Header() {
     try {
       const token = localStorage.getItem('userToken');
       if (token) {
-        await fetch('http://localhost:5000/api/auth/logout', {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

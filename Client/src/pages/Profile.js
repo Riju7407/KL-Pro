@@ -64,7 +64,7 @@ function Profile() {
     try {
       const token = localStorage.getItem('userToken');
       
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -101,7 +101,7 @@ function Profile() {
     try {
       const token = localStorage.getItem('userToken');
       
-      await fetch('http://localhost:5000/api/auth/logout', {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
