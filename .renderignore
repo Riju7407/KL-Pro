@@ -1,0 +1,12 @@
+Client
+.git
+.gitignore
+.env
+README.md
+DESIGN_*.md
+PROJECT_STRUCTURE.md
+QUICKSTART.md
+.vercelignore
+vercel.json
+API_CONFIGURATION.md
+start.sh
