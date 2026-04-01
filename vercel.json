@@ -2,7 +2,6 @@
   "buildCommand": "cd Client && npm install && npm run build",
   "installCommand": "npm install",
   "outputDirectory": "Client/build",
-  "framework": "react-router",
   "regions": ["iad1"],
   "git": {
     "deploymentEnabled": {
