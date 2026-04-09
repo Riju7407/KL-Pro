@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd Client && npm install && npm run build",
-  "installCommand": "npm install",
+  "buildCommand": "cd Client && npm run build",
+  "installCommand": "cd Client && npm install",
   "outputDirectory": "Client/build",
   "regions": ["iad1"],
   "git": {
