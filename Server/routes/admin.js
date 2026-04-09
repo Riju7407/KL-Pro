@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const upload = require('../middleware/upload');
 const {
   adminLogin,
   adminLogout,
@@ -25,7 +26,12 @@ const verifyAdminToken = require('../middleware/adminAuth');
 // Debug middleware
 router.use((req, res, next) => {
   console.log(`Admin route hit: ${req.method} ${req.path}`);
+  console.log('Content-Type:', req.get('Content-Type'));
   console.log('Authorization header:', req.headers.authorization ? 'Present' : 'Missing');
+  if (req.method === 'POST' || req.method === 'PUT') {
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file ? 'Present' : 'Not present');
+  }
   next();
 });
 
@@ -55,9 +61,9 @@ router.get('/services/stats', verifyAdminToken, getServiceStatistics);
 router.patch('/services/:id/toggle', verifyAdminToken, toggleServiceStatus);
 router.patch('/services/:id/most-booked', verifyAdminToken, toggleMostBooked);
 router.delete('/services/:id', verifyAdminToken, deleteService);
-router.put('/services/:id', verifyAdminToken, updateService);
+router.put('/services/:id', verifyAdminToken, upload.single('image'), updateService);
 router.get('/services/:id', verifyAdminToken, getServiceById);
-router.post('/services', verifyAdminToken, createService);
+router.post('/services', verifyAdminToken, upload.single('image'), createService);
 router.get('/services', verifyAdminToken, getAllServices);
 
 module.exports = router;

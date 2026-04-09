@@ -1,4 +1,25 @@
 const Service = require('../models/Service');
+const cloudinary = require('../config/cloudinary');
+
+// Helper function to upload image to Cloudinary
+const uploadImageToCloudinary = (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'kl-services/services',
+        resource_type: 'auto'
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result.secure_url);
+        }
+      }
+    );
+    stream.end(fileBuffer);
+  });
+};
 
 // Get all services (with filters)
 const getAllServices = async (req, res) => {
@@ -60,23 +81,74 @@ const getServiceById = async (req, res) => {
 // Create new service
 const createService = async (req, res) => {
   try {
-    const { name, description, category, basePrice, estimatedDuration, image } = req.body;
+    console.log('\n=== CREATE SERVICE DEBUG INFO ===');
+    console.log('Full body object:', JSON.stringify(req.body));
+    console.log('req.body keys:', Object.keys(req.body));
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file ? { filename: req.file.filename, mimetype: req.file.mimetype, size: req.file.size } : 'No file');
+    console.log('req.headers:', req.headers);
+    
+    const { name, description, category, basePrice, estimatedDuration } = req.body;
+    
+    console.log('Extracted values:', { name, description, category, basePrice, estimatedDuration });
+    console.log('Types:', { 
+      name: typeof name, 
+      description: typeof description, 
+      category: typeof category, 
+      basePrice: typeof basePrice, 
+      estimatedDuration: typeof estimatedDuration 
+    });
 
-    // Validate required fields
-    if (!name || !description || !category || !basePrice || !estimatedDuration) {
+    // Validate required fields - use undefined/null check instead of falsy check
+    if (!name || !description || !category || basePrice === undefined || basePrice === '' || estimatedDuration === undefined || estimatedDuration === '') {
+      console.log('Validation failed at: ', {
+        name: !name ? 'Missing or empty' : 'OK',
+        description: !description ? 'Missing or empty' : 'OK',
+        category: !category ? 'Missing or empty' : 'OK',
+        basePrice: (basePrice === undefined || basePrice === '') ? 'Missing or empty' : 'OK',
+        estimatedDuration: (estimatedDuration === undefined || estimatedDuration === '') ? 'Missing or empty' : 'OK'
+      });
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields'
+        message: 'Please provide all required fields',
+        received: { name, description, category, basePrice, estimatedDuration }
       });
+    }
+
+    // Parse numeric fields from FormData (they come as strings)
+    const parsedBasePrice = Number(basePrice);
+    const parsedDuration = Number(estimatedDuration);
+
+    if (isNaN(parsedBasePrice) || isNaN(parsedDuration)) {
+      return res.status(400).json({
+        success: false,
+        message: 'basePrice and estimatedDuration must be valid numbers'
+      });
+    }
+
+    let imageUrl = null;
+
+    // Upload image to Cloudinary if file provided
+    if (req.file) {
+      try {
+        imageUrl = await uploadImageToCloudinary(req.file.buffer);
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(400).json({
+          success: false,
+          message: 'Failed to upload image',
+          error: uploadError.message
+        });
+      }
     }
 
     const service = new Service({
       name,
       description,
       category,
-      basePrice,
-      estimatedDuration,
-      image: image || null
+      basePrice: parsedBasePrice,
+      estimatedDuration: parsedDuration,
+      image: imageUrl
     });
 
     await service.save();
@@ -99,7 +171,45 @@ const createService = async (req, res) => {
 // Update service
 const updateService = async (req, res) => {
   try {
-    const { name, description, category, basePrice, estimatedDuration, image, isActive, rating, reviewCount } = req.body;
+    const { name, description, category, basePrice, estimatedDuration, isActive, rating, reviewCount, image } = req.body;
+    
+    // Find the current service to get existing image
+    const existingService = await Service.findById(req.params.id);
+    if (!existingService) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found'
+      });
+    }
+
+    // Parse numeric fields from FormData (they come as strings)
+    const parsedBasePrice = basePrice ? Number(basePrice) : existingService.basePrice;
+    const parsedDuration = estimatedDuration ? Number(estimatedDuration) : existingService.estimatedDuration;
+    const parsedRating = rating ? Number(rating) : existingService.rating;
+    const parsedReviewCount = reviewCount ? Number(reviewCount) : existingService.reviewCount;
+
+    if (isNaN(parsedBasePrice) || isNaN(parsedDuration)) {
+      return res.status(400).json({
+        success: false,
+        message: 'basePrice and estimatedDuration must be valid numbers'
+      });
+    }
+
+    let imageUrl = image || existingService.image;
+
+    // Upload new image to Cloudinary if file provided
+    if (req.file) {
+      try {
+        imageUrl = await uploadImageToCloudinary(req.file.buffer);
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(400).json({
+          success: false,
+          message: 'Failed to upload image',
+          error: uploadError.message
+        });
+      }
+    }
 
     const service = await Service.findByIdAndUpdate(
       req.params.id,
@@ -107,22 +217,15 @@ const updateService = async (req, res) => {
         name,
         description,
         category,
-        basePrice,
-        estimatedDuration,
-        image,
+        basePrice: parsedBasePrice,
+        estimatedDuration: parsedDuration,
+        image: imageUrl,
         isActive,
-        rating,
-        reviewCount
+        rating: parsedRating,
+        reviewCount: parsedReviewCount
       },
       { new: true, runValidators: true }
     );
-
-    if (!service) {
-      return res.status(404).json({
-        success: false,
-        message: 'Service not found'
-      });
-    }
 
     res.status(200).json({
       success: true,

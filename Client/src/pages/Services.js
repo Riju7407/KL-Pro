@@ -39,7 +39,8 @@ function Services() {
           rating: service.rating || 0,
           reviews: service.reviewCount || 0,
           description: service.description,
-          availability: 'Instant'
+          availability: 'Instant',
+          image: service.image || null
         }));
       
       setServicesData(formattedServices);
@@ -73,35 +74,36 @@ function Services() {
 
   return (
     <div className="services-page">
-      {/* Header Section */}
-      <section className="services-header">
-        <div className="container">
-          <h1>Explore Our Services</h1>
-          <p>Choose from {servicesData.length}+ professional services</p>
-        </div>
+      <section className="services-hero">
+        <div className="services-hero-bg" style={{ backgroundImage: "url('/kl2.png')" }} />
       </section>
 
       <div className="container">
         {error && (
-          <div className="error-message" style={{ padding: '15px', background: '#fee', color: '#c00', borderRadius: '4px', marginBottom: '20px' }}>
+          <div className="error-message">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="loading-message" style={{ textAlign: 'center', padding: '40px', fontSize: '1.1em', color: '#666' }}>
+          <div className="loading-message">
             Loading services...
           </div>
         ) : (
           <>
-            {/* Filters Section */}
             <section className="filters-section">
-              <div className="category-tabs">
+              <div className="filters-title-row">
+                <h2>Choose Your Service</h2>
+                <p>{sorted.length} results</p>
+              </div>
+
+              <div className="category-tabs" role="tablist" aria-label="Service categories">
                 {categories.map((cat) => (
                   <button
                     key={cat.id}
                     className={`category-tab ${selectedCategory === cat.id ? 'active' : ''}`}
                     onClick={() => setSelectedCategory(cat.id)}
+                    type="button"
                   >
                     <span className="tab-icon">{cat.icon}</span>
                     <span className="tab-name">{cat.name}</span>
@@ -118,16 +120,22 @@ function Services() {
               </div>
             </section>
 
-            {/* Services Grid */}
             <section className="services-section">
               <div className="services-grid">
                 {sorted.length > 0 ? (
                   sorted.map((service) => (
                     <div key={service.id} className="service-card">
-                      <div className="service-image">📷</div>
+                      <div className="service-image">
+                        {service.image ? (
+                          <img src={service.image} alt={service.name} />
+                        ) : (
+                          <div className="image-placeholder">📷</div>
+                        )}
+                      </div>
                       
                       <div className="service-content">
                         <h3 className="service-name">{service.name}</h3>
+                                              <p className="service-description">{service.description}</p>
                         
                         <div className="rating-section">
                           <span className="rating">⭐ {service.rating.toFixed(1)}</span>
@@ -143,7 +151,7 @@ function Services() {
 
                         <div className="service-footer">
                           <span className="price">₹{service.price}</span>
-                          <button className="book-now-btn">Book Now</button>
+                          <button className="book-now-btn" type="button">Book Now</button>
                         </div>
                       </div>
                     </div>
@@ -153,31 +161,6 @@ function Services() {
                     <p>No services available in this category</p>
                   </div>
                 )}
-              </div>
-            </section>
-
-            {/* Trust Section */}
-            <section className="trust-section">
-              <div className="trust-content">
-                <h2>Trusted by Millions</h2>
-                <div className="trust-stats">
-                  <div className="trust-stat">
-                    <h4>{servicesData.length}+</h4>
-                    <p>Services</p>
-                  </div>
-                  <div className="trust-stat">
-                    <h4>5000+</h4>
-                    <p>Professionals</p>
-                  </div>
-                  <div className="trust-stat">
-                    <h4>4.8⭐</h4>
-                    <p>Average Rating</p>
-                  </div>
-                  <div className="trust-stat">
-                    <h4>100K+</h4>
-                    <p>Happy Customers</p>
-                  </div>
-                </div>
               </div>
             </section>
           </>

@@ -913,6 +913,50 @@
   animation: slideIn 0.3s ease;
 }
 
+/* Image Upload Styles */
+.image-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group .image-input {
+  padding: 12px;
+  border: 2px dashed var(--primary-color);
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(123, 44, 191, 0.05);
+  transition: all 0.3s ease;
+}
+
+.form-group .image-input:hover {
+  background: rgba(123, 44, 191, 0.1);
+  border-color: var(--secondary-color);
+}
+
+.form-group .image-input:focus {
+  outline: none;
+  border-color: var(--secondary-color);
+  box-shadow: 0 0 0 4px rgba(123, 44, 191, 0.1);
+}
+
+.image-preview {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--light-bg);
+  max-width: 300px;
+  margin: 0 auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.image-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+}
+
 @media (max-width: 768px) {
   .services-header {
     flex-direction: column;

@@ -35,6 +35,7 @@ function Home() {
           rating: service.rating || 0,
           reviews: service.reviewCount || 0,
           time: `${service.estimatedDuration} mins`,
+          image: service.image || null,
           discount: null
         }))
         .slice(0, 6); // Show only first 6
@@ -55,39 +56,79 @@ function Home() {
     { id: 3, name: 'Spa Services', image: '/SS.png', time: '60 mins' },
     { id: 4, name: 'Hair Services', image: '/HS.png', time: '45 mins' },
     { id: 5, name: 'Makeup', image: '/M.png', time: '50 mins' },
-    { id: 6, name: 'Cleaning', image: '/C.png', time: '90 mins' },
+    { id: 6, name: 'Home Cleaning', image: '/C.png', time: '90 mins' },
   ];
 
   const categoryServices = [
     {
       title: 'Salon for Women',
-      subtitle: 'Pamper yourself at home',
-      icon: '✨',
+      subtitle: 'Signature beauty sessions with trained experts',
+      icon: 'WSS.png',
       services: ['Waxing', 'Threading', 'Facial', 'Cleanup', 'Makeup'],
     },
     {
       title: 'Cleaning Essentials',
-      subtitle: 'Professional cleaning services',
-      icon: '🧹',
+      subtitle: 'Deep cleaning routines for every corner',
+      icon: 'C.png',
       services: ['Home Cleaning', 'Carpet Cleaning', 'Kitchen Cleaning', 'Bathroom Cleaning'],
     },
     {
       title: 'Grooming for Men',
-      subtitle: 'Grooming essentials',
-      icon: '💈',
+      subtitle: 'Contemporary grooming with premium products',
+      icon: 'MG.png',
       services: ['Haircut', 'Shave', 'Beard Trim', 'Massage'],
+    },
+  ];
+
+  const platformHighlights = [
+    { id: 1, value: '10K+', label: 'Monthly Appointments' },
+    { id: 2, value: '4.8★', label: 'Average Customer Rating' },
+    { id: 3, value: '60 Min', label: 'Average Arrival Time' },
+    { id: 4, value: '100%', label: 'Verified Professionals' },
+  ];
+
+  const trustPillars = [
+    {
+      title: 'Vetted Experts',
+      description: 'Every professional is identity-verified and skill-tested before going live.',
+    },
+    {
+      title: 'Transparent Pricing',
+      description: 'No hidden charges, with clear service pricing shown before booking.',
+    },
+    {
+      title: 'On-Time Support',
+      description: 'Real-time support and updates from booking to service completion.',
     },
   ];
 
   return (
     <div className="home">
-      {/* Hero Carousel Section */}
       <HeroCarousel />
 
-      {/* Quick Access Categories */}
+      <section className="home-intro">
+        <div className="container">
+          <div className="intro-card">
+            <p className="intro-eyebrow">KLPro Home Services</p>
+            <h1>Professional Home Services, Curated for Modern Living</h1>
+            <p>
+              Browse expert-led beauty, grooming, spa, and cleaning services with fast scheduling
+              and consistent quality standards.
+            </p>
+            <div className="intro-cta-row">
+              <a href="/services" className="intro-btn primary">Browse All Services</a>
+              <a href="/professionals" className="intro-btn secondary">Meet Professionals</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="quick-categories">
         <div className="container">
-          <h2>What are you looking for?</h2>
+          <div className="section-header-block">
+            <h2>Explore Popular Categories</h2>
+            <p>Find the right service in seconds and book at your convenience.</p>
+          </div>
           <div className="categories-grid">
             {quickCategories.map((cat) => (
               <div key={cat.id} className="quick-card">
@@ -96,54 +137,45 @@ function Home() {
                 </div>
                 <h3>{cat.name}</h3>
                 <p className="quick-time">⏱️ {cat.time}</p>
-                <button className="quick-btn">Book</button>
+                <button className="quick-btn" type="button">Book</button>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Stats Section */}
       <section className="stats-section">
         <div className="container">
           <div className="stats-grid">
-            <div className="stat-card">
-              <h3>5000+</h3>
-              <p>Professionals</p>
-            </div>
-            <div className="stat-card">
-              <h3>50+</h3>
-              <p>Cities</p>
-            </div>
-            <div className="stat-card">
-              <h3>100K+</h3>
-              <p>Bookings Completed</p>
-            </div>
-            <div className="stat-card">
-              <h3>4.8⭐</h3>
-              <p>Average Rating</p>
-            </div>
+            {platformHighlights.map((item) => (
+              <div key={item.id} className="stat-card">
+                <h3>{item.value}</h3>
+                <p>{item.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Offers & Discounts */}
       <section className="offers-section">
         <div className="container">
-          <h2>Offers & Discounts</h2>
+          <div className="section-header-block">
+            <h2>Exclusive Booking Benefits</h2>
+            <p>Make every booking more rewarding with limited-time offers.</p>
+          </div>
           <div className="offers-carousel">
             <div className="offer-banner">
-              <span className="offer-badge">SPECIAL</span>
+              <span className="offer-badge">New User</span>
               <h3>Save 20% on first booking</h3>
               <p>Use code: KL20</p>
             </div>
             <div className="offer-banner">
-              <span className="offer-badge">HOT</span>
+              <span className="offer-badge">Referral</span>
               <h3>Refer & Earn Rewards</h3>
               <p>Get ₹200 for each referral</p>
             </div>
             <div className="offer-banner">
-              <span className="offer-badge">NEW</span>
+              <span className="offer-badge">Weekend</span>
               <h3>Weekend Special</h3>
               <p>Flat 30% off on services</p>
             </div>
@@ -151,7 +183,6 @@ function Home() {
         </div>
       </section>
 
-      {/* Most Booked Services */}
       <section className="most-booked">
         <div className="container">
           <div className="section-header">
@@ -169,7 +200,13 @@ function Home() {
                   {service.discount && (
                     <div className="discount-badge">{service.discount}</div>
                   )}
-                  <div className="service-image">📷</div>
+                  <div className="service-image">
+                    {service.image ? (
+                      <img src={service.image} alt={service.name} />
+                    ) : (
+                      <div className="image-placeholder">📷</div>
+                    )}
+                  </div>
                   <h3>{service.name}</h3>
                   <div className="rating">
                     <span className="stars">⭐ {service.rating.toFixed(1)}</span>
@@ -181,7 +218,7 @@ function Home() {
                   </div>
                   <div className="price-section">
                     <span className="price">₹{service.price}</span>
-                    <button className="book-btn">Book</button>
+                    <button className="book-btn" type="button">Book</button>
                   </div>
                 </div>
               ))}
@@ -194,7 +231,6 @@ function Home() {
         </div>
       </section>
 
-      {/* Category Sections */}
       {categoryServices.map((category) => (
         <section key={category.title} className="category-section">
           <div className="container">
@@ -208,10 +244,12 @@ function Home() {
             <div className="category-services">
               {category.services.map((service, idx) => (
                 <div key={idx} className="category-service-card">
-                  <div className="service-image-lg">{category.icon}</div>
+                  <div className="service-image-lg">
+                    <img src={`/${category.icon}`} alt={category.title} />
+                  </div>
                   <h3>{service}</h3>
                   <p>Professional & verified</p>
-                  <button className="service-btn">Explore</button>
+                  <button className="service-btn" type="button">Explore</button>
                 </div>
               ))}
             </div>
@@ -219,31 +257,29 @@ function Home() {
         </section>
       ))}
 
-      {/* Why Choose Us */}
       <section className="why-us">
         <div className="container">
-          <h2>Why Choose KLPro Pvt Ltd?</h2>
+          <div className="section-header-block">
+            <h2>Why KLPro Stands Out</h2>
+            <p>Built for reliability, quality delivery, and complete peace of mind.</p>
+          </div>
           <div className="why-grid">
-            <div className="why-card">
-              <div className="why-icon">🛡️</div>
-              <h3>Verified Professionals</h3>
-              <p>All professionals are background checked and verified</p>
-            </div>
-            <div className="why-card">
-              <div className="why-icon">⏰</div>
-              <h3>On-Time Service</h3>
-              <p>Professionals arrive on time or we refund 50%</p>
-            </div>
-            <div className="why-card">
-              <div className="why-icon">⭐</div>
-              <h3>Quality Guarantee</h3>
-              <p>Satisfaction guaranteed or money back</p>
-            </div>
-            <div className="why-card">
-              <div className="why-icon">✨</div>
-              <h3>Easy Booking</h3>
-              <p>Book services in just 2 minutes from home</p>
-            </div>
+            {trustPillars.map((pillar) => (
+              <div key={pillar.title} className="why-card">
+                <h3>{pillar.title}</h3>
+                <p>{pillar.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="home-cta">
+        <div className="container">
+          <div className="cta-box">
+            <h2>Ready to Book a Service?</h2>
+            <p>Choose your service, pick a slot, and let our experts handle the rest.</p>
+            <a href="/services" className="cta-btn">Start Booking</a>
           </div>
         </div>
       </section>

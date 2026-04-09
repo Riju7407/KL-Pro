@@ -13,7 +13,9 @@ function AdminServicesSection({
   handleCreateService,
   handleToggleMostBooked,
   searchQuery,
-  setSearchQuery
+  setSearchQuery,
+  handleServiceImageChange,
+  imagePreview
 }) {
   const filteredServices = services.filter(service =>
     service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -121,6 +123,22 @@ function AdminServicesSection({
                   checked={editingService.isActive}
                   onChange={(e) => setEditingService({...editingService, isActive: e.target.checked})}
                 />
+              </div>
+              <div className="form-group">
+                <label>Service Image</label>
+                <div className="image-upload-container">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleServiceImageChange}
+                    className="image-input"
+                  />
+                  {(imagePreview || editingService.image) && (
+                    <div className="image-preview">
+                      <img src={imagePreview || editingService.image} alt="Service Preview" />
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="form-actions">
                 <button className="btn-save" onClick={handleUpdateService}>Save Changes</button>
@@ -245,6 +263,22 @@ function AdminServicesSection({
                   onChange={(e) => setEditingService({...editingService, estimatedDuration: Number(e.target.value)})}
                   placeholder="30"
                 />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Service Image</label>
+              <div className="image-upload-container">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleServiceImageChange}
+                  className="image-input"
+                />
+                {imagePreview && (
+                  <div className="image-preview">
+                    <img src={imagePreview} alt="Service Preview" />
+                  </div>
+                )}
               </div>
             </div>
             <div className="form-actions">

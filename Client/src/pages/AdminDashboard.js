@@ -17,6 +17,8 @@ function AdminDashboard() {
   const [selectedService, setSelectedService] = useState(null);
   const [editingService, setEditingService] = useState(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
+  const [serviceImageFile, setServiceImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -139,7 +141,7 @@ function AdminDashboard() {
   const handleUpdateUser = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`\/api/admin/users/${editingUser._id}`, {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${editingUser._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -190,14 +192,39 @@ function AdminDashboard() {
 
   const handleUpdateService = async () => {
     try {
+      // Client-side validation - use proper checks for numeric fields
+      if (!editingService.name || !editingService.description || !editingService.category || 
+          editingService.basePrice === undefined || editingService.basePrice === '' || 
+          editingService.estimatedDuration === undefined || editingService.estimatedDuration === '') {
+        setError('Please fill in all required fields: Name, Description, Category, Price, and Duration');
+        return;
+      }
+      
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`\/api/admin/services/${editingService._id}`, {
+      const formData = new FormData();
+      
+      formData.append('name', editingService.name);
+      formData.append('description', editingService.description);
+      formData.append('category', editingService.category);
+      formData.append('basePrice', editingService.basePrice);
+      formData.append('estimatedDuration', editingService.estimatedDuration);
+      formData.append('isActive', editingService.isActive);
+      formData.append('rating', editingService.rating);
+      formData.append('reviewCount', editingService.reviewCount);
+      
+      // Add image file if selected, otherwise add the current image URL
+      if (serviceImageFile) {
+        formData.append('image', serviceImageFile);
+      } else if (editingService.image) {
+        formData.append('image', editingService.image);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/services/${editingService._id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(editingService)
+        body: formData
       });
 
       if (!response.ok) {
@@ -208,6 +235,8 @@ function AdminDashboard() {
       setServices(services.map(s => s._id === updatedService.service._id ? updatedService.service : s));
       setEditingService(null);
       setSelectedService(null);
+      setServiceImageFile(null);
+      setImagePreview(null);
       alert('Service updated successfully');
     } catch (err) {
       setError(err.message || 'Failed to update service');
@@ -216,34 +245,81 @@ function AdminDashboard() {
 
   const handleCreateService = async () => {
     try {
+      // Client-side validation - use proper checks for numeric fields
+      if (!editingService.name || !editingService.description || !editingService.category || 
+          editingService.basePrice === undefined || editingService.basePrice === '' || 
+          editingService.estimatedDuration === undefined || editingService.estimatedDuration === '') {
+        setError('Please fill in all required fields: Name, Description, Category, Price, and Duration');
+        return;
+      }
+      
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('\/api/admin/services', {
+      const formData = new FormData();
+      
+      formData.append('name', editingService.name);
+      formData.append('description', editingService.description);
+      formData.append('category', editingService.category);
+      formData.append('basePrice', editingService.basePrice);
+      formData.append('estimatedDuration', editingService.estimatedDuration);
+      
+      // Log what's being sent
+      console.log('Creating service with:', {
+        name: editingService.name,
+        description: editingService.description,
+        category: editingService.category,
+        basePrice: editingService.basePrice,
+        estimatedDuration: editingService.estimatedDuration,
+        hasImage: !!serviceImageFile
+      });
+      
+      // Add image file if selected
+      if (serviceImageFile) {
+        formData.append('image', serviceImageFile);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/services`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(editingService)
+        body: formData
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create service');
+        const errorData = await response.json();
+        console.error('Server error response:', errorData);
+        throw new Error(errorData.message || 'Failed to create service');
       }
 
       const newService = await response.json();
       setServices([...services, newService.service]);
       setEditingService(null);
       setShowServiceForm(false);
+      setServiceImageFile(null);
+      setImagePreview(null);
       alert('Service created successfully');
     } catch (err) {
+      console.error('Error in handleCreateService:', err);
       setError(err.message || 'Failed to create service');
+    }
+  };
+
+  const handleServiceImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setServiceImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const handleToggleMostBooked = async (serviceId) => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`\/api/admin/services/${serviceId}/most-booked`, {
+      const response = await fetch(`${API_BASE_URL}/admin/services/${serviceId}/most-booked`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -266,7 +342,7 @@ function AdminDashboard() {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      await fetch('\/api/admin/logout', {
+      await fetch(`${API_BASE_URL}/admin/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -545,6 +621,8 @@ function AdminDashboard() {
             handleToggleMostBooked={handleToggleMostBooked}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
+            handleServiceImageChange={handleServiceImageChange}
+            imagePreview={imagePreview}
           />
         )}
       </div>

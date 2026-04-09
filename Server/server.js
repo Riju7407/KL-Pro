@@ -24,13 +24,28 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Custom middleware to handle both JSON and FormData
+app.use((req, res, next) => {
+  // Skip body parsers for multipart/form-data requests (they'll be handled by multer)
+  if (req.is('multipart/form-data')) {
+    return next();
+  }
+  express.json()(req, res, next);
+});
+
+app.use((req, res, next) => {
+  // Skip urlencoded for multipart/form-data requests
+  if (req.is('multipart/form-data')) {
+    return next();
+  }
+  express.urlencoded({ extended: true })(req, res, next);
+});
 
 // Database Connection
 const connectDB = async () => {

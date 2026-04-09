@@ -3,11 +3,13 @@
 ## Current Deployment Status
 
 ### Frontend (Vercel)
+
 - **URL**: https://kl-pro.vercel.app
 - **Build**: React with react-scripts
 - **Auto-deploy**: Enabled on push to main
 
 ### Backend (Render)
+
 - **URL**: https://kl-pro.onrender.com
 - **Runtime**: Node.js
 - **Auto-deploy**: Enabled on push to main
@@ -17,11 +19,13 @@
 The frontend automatically connects to the backend based on the environment:
 
 **Development (localhost)**
+
 - Frontend: http://localhost:3000
 - Backend: http://localhost:5000
 - API calls go to: `http://localhost:5000/api`
 
 **Production (Vercel)**
+
 - Frontend: https://kl-pro.vercel.app
 - Backend: https://kl-pro.onrender.com
 - API calls go to: `https://kl-pro.onrender.com/api`
@@ -59,6 +63,7 @@ Ensure these variables are set in Render Dashboard:
 ## CORS Configuration
 
 The backend allows requests from:
+
 - http://localhost:3000 (local development)
 - http://localhost:5000 (local API testing)
 - https://kl-pro.vercel.app (production frontend)
@@ -72,17 +77,21 @@ The backend allows requests from:
 ## Troubleshooting
 
 ### CORS Errors
+
 If you get CORS errors:
+
 1. Verify the frontend is calling the correct backend URL
 2. Check Render logs: `https://dashboard.render.com/`
 3. Verify backend CORS configuration in `Server/server.js`
 
 ### Deployment Failed
+
 1. Check build logs on Vercel or Render dashboard
 2. Ensure all environment variables are set
 3. Verify `.env` file in Server directory has correct MongoDB URI
 
 ### API Not Responding
+
 1. Check if Render service is running: https://dashboard.render.com/
 2. Verify network connectivity from Vercel to Render
 3. Check MongoDB connection in Render logs
