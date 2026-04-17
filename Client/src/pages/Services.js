@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import './Services.css';
 import API_BASE_URL from '../config/apiConfig';
+import { SERVICE_HIERARCHY, getHierarchyOptions, getServiceTypeOptions } from '../config/serviceHierarchy';
 
 function Services() {
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('all');
+  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState('all');
+  const [selectedServiceType, setSelectedServiceType] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
   const [servicesData, setServicesData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +38,9 @@ function Services() {
           id: service._id,
           name: service.name,
           category: service.category,
+          subCategory: service.subCategory || '',
+          subSubCategory: service.subSubCategory || '',
+          serviceType: service.serviceType || '',
           price: service.basePrice,
           duration: `${service.estimatedDuration} min`,
           rating: service.rating || 0,
@@ -52,19 +59,126 @@ function Services() {
     }
   };
 
+  const categoryIcons = {
+    HelpingHand: '🤝',
+    "Women's Salon & Spa": '💄',
+    "Men's Salon & Massage": '💈',
+    'Cleaning & Pest Control': '🧽',
+    'AC & Appliance Repair': '🛠️',
+    'Electrician, Plumber, Carpenter & Mason': '🔧',
+    Repairs: '🔧',
+    'Home Decoration': '🎉',
+  };
+
+  const dataCategories = Array.from(new Set(servicesData.map((service) => service.category).filter(Boolean)));
+  const hierarchyCategories = Object.keys(SERVICE_HIERARCHY);
+  const mergedCategories = Array.from(new Set([...hierarchyCategories, ...dataCategories]));
+
   const categories = [
     { id: 'all', name: 'All Services', icon: '🔍' },
-    { id: 'hair', name: 'Hair Services', icon: '✂️' },
-    { id: 'salon', name: 'Salon', icon: '💄' },
-    { id: 'spa', name: 'Spa', icon: '🧖' },
-    { id: 'makeup', name: 'Makeup', icon: '💅' },
-    { id: 'grooming', name: 'Grooming', icon: '💈' },
-    { id: 'other', name: 'Other', icon: '⭐' },
+    ...mergedCategories.map((category) => ({
+      id: category,
+      name: category,
+      icon: categoryIcons[category] || '⭐',
+    })),
   ];
 
-  const filtered = selectedCategory === 'all' 
-    ? servicesData 
-    : servicesData.filter(s => s.category === selectedCategory);
+  const getSubCategoryOptions = () => {
+    if (selectedCategory === 'all') {
+      return Array.from(new Set(servicesData.map((service) => service.subCategory).filter(Boolean)));
+    }
+
+    if (SERVICE_HIERARCHY[selectedCategory]) {
+      return getHierarchyOptions(selectedCategory).subCategories;
+    }
+
+    return Array.from(
+      new Set(
+        servicesData
+          .filter((service) => service.category === selectedCategory)
+          .map((service) => service.subCategory)
+          .filter(Boolean)
+      )
+    );
+  };
+
+  const getSubSubCategoryOptions = () => {
+    if (selectedSubCategory === 'all') {
+      return Array.from(
+        new Set(
+          servicesData
+            .filter((service) => selectedCategory === 'all' || service.category === selectedCategory)
+            .map((service) => service.subSubCategory)
+            .filter(Boolean)
+        )
+      );
+    }
+
+    if (selectedCategory !== 'all' && SERVICE_HIERARCHY[selectedCategory]) {
+      return getHierarchyOptions(selectedCategory, selectedSubCategory).subSubCategories;
+    }
+
+    return Array.from(
+      new Set(
+        servicesData
+          .filter(
+            (service) =>
+              (selectedCategory === 'all' || service.category === selectedCategory) &&
+              service.subCategory === selectedSubCategory
+          )
+          .map((service) => service.subSubCategory)
+          .filter(Boolean)
+      )
+    );
+  };
+
+  const getServiceTypeFilterOptions = () => {
+    if (selectedSubSubCategory === 'all') {
+      return Array.from(
+        new Set(
+          servicesData
+            .filter(
+              (service) =>
+                (selectedCategory === 'all' || service.category === selectedCategory) &&
+                (selectedSubCategory === 'all' || service.subCategory === selectedSubCategory)
+            )
+            .map((service) => service.serviceType)
+            .filter(Boolean)
+        )
+      );
+    }
+
+    if (selectedCategory !== 'all' && selectedSubCategory !== 'all') {
+      return getServiceTypeOptions(selectedCategory, selectedSubCategory, selectedSubSubCategory);
+    }
+
+    return Array.from(
+      new Set(
+        servicesData
+          .filter(
+            (service) =>
+              (selectedCategory === 'all' || service.category === selectedCategory) &&
+              (selectedSubCategory === 'all' || service.subCategory === selectedSubCategory) &&
+              service.subSubCategory === selectedSubSubCategory
+          )
+          .map((service) => service.serviceType)
+          .filter(Boolean)
+      )
+    );
+  };
+
+  const subCategoryOptions = getSubCategoryOptions();
+  const subSubCategoryOptions = getSubSubCategoryOptions();
+
+  const filtered = servicesData.filter((service) => {
+    const matchesCategory = selectedCategory === 'all' || service.category === selectedCategory;
+    const matchesSubCategory = selectedSubCategory === 'all' || service.subCategory === selectedSubCategory;
+    const matchesSubSubCategory =
+      selectedSubSubCategory === 'all' || service.subSubCategory === selectedSubSubCategory;
+    const matchesServiceType = selectedServiceType === 'all' || service.serviceType === selectedServiceType;
+
+    return matchesCategory && matchesSubCategory && matchesSubSubCategory && matchesServiceType;
+  });
 
   const sorted = [...filtered].sort((a, b) => {
     if (sortBy === 'price') return a.price - b.price;
@@ -102,13 +216,76 @@ function Services() {
                   <button
                     key={cat.id}
                     className={`category-tab ${selectedCategory === cat.id ? 'active' : ''}`}
-                    onClick={() => setSelectedCategory(cat.id)}
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      setSelectedSubCategory('all');
+                      setSelectedSubSubCategory('all');
+                      setSelectedServiceType('all');
+                    }}
                     type="button"
                   >
                     <span className="tab-icon">{cat.icon}</span>
                     <span className="tab-name">{cat.name}</span>
                   </button>
                 ))}
+              </div>
+
+              <div className="hierarchy-filters" aria-label="Service hierarchy filters">
+                <div className="hierarchy-filter-item">
+                  <label htmlFor="subCategory">Subcategory</label>
+                  <select
+                    id="subCategory"
+                    value={selectedSubCategory}
+                    onChange={(e) => {
+                      setSelectedSubCategory(e.target.value);
+                      setSelectedSubSubCategory('all');
+                      setSelectedServiceType('all');
+                    }}
+                    className="sort-select"
+                  >
+                    <option value="all">All Subcategories</option>
+                    {subCategoryOptions.map((subCategory) => (
+                      <option key={subCategory} value={subCategory}>
+                        {subCategory}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="hierarchy-filter-item">
+                  <label htmlFor="subSubCategory">Sub-subcategory</label>
+                  <select
+                    id="subSubCategory"
+                    value={selectedSubSubCategory}
+                    onChange={(e) => {
+                      setSelectedSubSubCategory(e.target.value);
+                      setSelectedServiceType('all');
+                    }}
+                    className="sort-select"
+                  >
+                    <option value="all">All Sub-subcategories</option>
+                    {subSubCategoryOptions.map((subSubCategory) => (
+                      <option key={subSubCategory} value={subSubCategory}>
+                        {subSubCategory}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="hierarchy-filter-item">
+                  <label htmlFor="serviceType">Service Type</label>
+                  <select
+                    id="serviceType"
+                    value={selectedServiceType}
+                    onChange={(e) => setSelectedServiceType(e.target.value)}
+                    className="sort-select"
+                  >
+                    <option value="all">All Service Types</option>
+                    {getServiceTypeFilterOptions().map((serviceType) => (
+                      <option key={serviceType} value={serviceType}>
+                        {serviceType}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="sort-options">
@@ -135,7 +312,18 @@ function Services() {
                       
                       <div className="service-content">
                         <h3 className="service-name">{service.name}</h3>
-                                              <p className="service-description">{service.description}</p>
+                        <p className="service-description">{service.description}</p>
+
+                        <div className="service-hierarchy-badges">
+                          <span className="service-hierarchy-badge">{service.category}</span>
+                          {service.subCategory && <span className="service-hierarchy-badge">{service.subCategory}</span>}
+                          {service.subSubCategory && (
+                            <span className="service-hierarchy-badge">{service.subSubCategory}</span>
+                          )}
+                          {service.serviceType && (
+                            <span className="service-hierarchy-badge">{service.serviceType}</span>
+                          )}
+                        </div>
                         
                         <div className="rating-section">
                           <span className="rating">⭐ {service.rating.toFixed(1)}</span>
@@ -158,7 +346,7 @@ function Services() {
                   ))
                 ) : (
                   <div className="no-services">
-                    <p>No services available in this category</p>
+                    <p>No services available with the selected filters</p>
                   </div>
                 )}
               </div>

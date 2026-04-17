@@ -44,11 +44,14 @@ router.get('/:id', async (req, res) => {
 // Create service (admin only)
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { name, description, category, basePrice, estimatedDuration, image } = req.body;
+    const { name, description, category, subCategory, subSubCategory, serviceType, basePrice, estimatedDuration, image } = req.body;
     const service = new Service({
       name,
       description,
       category,
+      subCategory,
+      subSubCategory,
+      serviceType,
       basePrice,
       estimatedDuration,
       image,

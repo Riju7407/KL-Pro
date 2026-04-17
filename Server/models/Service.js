@@ -12,8 +12,19 @@ const serviceSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ['hair', 'salon', 'spa', 'makeup', 'grooming', 'other'],
       required: true,
+    },
+    subCategory: {
+      type: String,
+      default: '',
+    },
+    subSubCategory: {
+      type: String,
+      default: '',
+    },
+    serviceType: {
+      type: String,
+      default: '',
     },
     basePrice: {
       type: Number,

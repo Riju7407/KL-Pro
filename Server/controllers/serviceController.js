@@ -88,7 +88,7 @@ const createService = async (req, res) => {
     console.log('req.file:', req.file ? { filename: req.file.filename, mimetype: req.file.mimetype, size: req.file.size } : 'No file');
     console.log('req.headers:', req.headers);
     
-    const { name, description, category, basePrice, estimatedDuration } = req.body;
+    const { name, description, category, subCategory, subSubCategory, serviceType, basePrice, estimatedDuration } = req.body;
     
     console.log('Extracted values:', { name, description, category, basePrice, estimatedDuration });
     console.log('Types:', { 
@@ -146,6 +146,9 @@ const createService = async (req, res) => {
       name,
       description,
       category,
+      subCategory: subCategory || '',
+      subSubCategory: subSubCategory || '',
+      serviceType: serviceType || '',
       basePrice: parsedBasePrice,
       estimatedDuration: parsedDuration,
       image: imageUrl
@@ -171,7 +174,20 @@ const createService = async (req, res) => {
 // Update service
 const updateService = async (req, res) => {
   try {
-    const { name, description, category, basePrice, estimatedDuration, isActive, rating, reviewCount, image } = req.body;
+    const {
+      name,
+      description,
+      category,
+      subCategory,
+      subSubCategory,
+      serviceType,
+      basePrice,
+      estimatedDuration,
+      isActive,
+      rating,
+      reviewCount,
+      image,
+    } = req.body;
     
     // Find the current service to get existing image
     const existingService = await Service.findById(req.params.id);
@@ -217,6 +233,9 @@ const updateService = async (req, res) => {
         name,
         description,
         category,
+        subCategory: subCategory || '',
+        subSubCategory: subSubCategory || '',
+        serviceType: serviceType || '',
         basePrice: parsedBasePrice,
         estimatedDuration: parsedDuration,
         image: imageUrl,

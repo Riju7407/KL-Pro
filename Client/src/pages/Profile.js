@@ -1,36 +1,107 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import './Profile.css';
 
+const DEFAULT_WALLET = {
+  balance: 1850,
+  rewardCredits: 220,
+  pendingRefund: 0,
+  transactions: [
+    {
+      id: 'txn-1',
+      type: 'credit',
+      label: 'Welcome wallet bonus',
+      amount: 150,
+      date: new Date().toISOString(),
+    },
+  ],
+};
+
+const formatCurrency = (amount) => `INR ${Number(amount || 0).toLocaleString('en-IN')}`;
+
 function Profile() {
+  const navigate = useNavigate();
+  const authToken = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
+
   const [profile, setProfile] = useState(null);
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
-  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [savedProfessionals, setSavedProfessionals] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('savedProfessionals') || '[]');
+      return Array.isArray(stored) ? stored : [];
+    } catch (parseError) {
+      return [];
+    }
+  });
+  const [walletData, setWalletData] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('walletData') || 'null');
+      if (stored && typeof stored === 'object') {
+        return {
+          ...DEFAULT_WALLET,
+          ...stored,
+          transactions: Array.isArray(stored.transactions) ? stored.transactions : DEFAULT_WALLET.transactions,
+        };
+      }
+      return DEFAULT_WALLET;
+    } catch (parseError) {
+      return DEFAULT_WALLET;
+    }
+  });
+  const [preferences, setPreferences] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('profilePreferences')) || {
+        orderAlerts: true,
+        offersAndDeals: true,
+        serviceReminders: false,
+      };
+    } catch (prefError) {
+      return {
+        orderAlerts: true,
+        offersAndDeals: true,
+        serviceReminders: false,
+      };
+    }
+  });
 
   const fetchProfile = useCallback(async () => {
     try {
-      const token = localStorage.getItem('userToken');
-      
-      if (!token) {
+      if (!authToken) {
         navigate('/login');
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/users/profile`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      setLoading(true);
+      setError('');
 
-      if (!response.ok) {
-        if (response.status === 401) {
+      const [profileResponse, bookingsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/users/profile`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+        fetch(`${API_BASE_URL}/bookings`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+      ]);
+
+      if (!profileResponse.ok) {
+        if (profileResponse.status === 401) {
           localStorage.removeItem('userToken');
+          localStorage.removeItem('token');
           localStorage.removeItem('user');
           navigate('/login');
           return;
@@ -38,44 +109,112 @@ function Profile() {
         throw new Error('Failed to fetch profile');
       }
 
-      const data = await response.json();
+      const data = await profileResponse.json();
       setProfile(data);
       setEditData(data);
+
+      if (bookingsResponse.ok) {
+        const bookingData = await bookingsResponse.json();
+        setBookings(Array.isArray(bookingData) ? bookingData : []);
+      }
     } catch (err) {
       setError(err.message || 'Failed to load profile');
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, authToken]);
 
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditData(prev => ({
+  useEffect(() => {
+    localStorage.setItem('profilePreferences', JSON.stringify(preferences));
+  }, [preferences]);
+
+  useEffect(() => {
+    localStorage.setItem('walletData', JSON.stringify(walletData));
+  }, [walletData]);
+
+  useEffect(() => {
+    const syncSaved = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem('savedProfessionals') || '[]');
+        setSavedProfessionals(Array.isArray(stored) ? stored : []);
+      } catch (parseError) {
+        setSavedProfessionals([]);
+      }
+    };
+
+    syncSaved();
+    window.addEventListener('focus', syncSaved);
+    return () => window.removeEventListener('focus', syncSaved);
+  }, []);
+
+  const accountStats = useMemo(() => {
+    const total = bookings.length;
+    const upcoming = bookings.filter((booking) => ['pending', 'confirmed', 'in-progress'].includes(booking.status)).length;
+    const completed = bookings.filter((booking) => booking.status === 'completed').length;
+    const spend = bookings
+      .filter((booking) => booking.status !== 'cancelled')
+      .reduce((sum, booking) => sum + (Number(booking.price) || 0), 0);
+
+    const completionChecks = [
+      Boolean(profile?.name),
+      Boolean(profile?.email),
+      Boolean(profile?.phone),
+      Boolean(profile?.city),
+      Boolean(profile?.address),
+    ];
+    const completion = Math.round((completionChecks.filter(Boolean).length / completionChecks.length) * 100);
+
+    return {
+      total,
+      upcoming,
+      completed,
+      spend,
+      completion,
+    };
+  }, [bookings, profile]);
+
+  const recentBookings = useMemo(
+    () => [...bookings].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 4),
+    [bookings]
+  );
+
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'account', label: 'Account Details' },
+    { id: 'wallet', label: 'My Wallet' },
+    { id: 'saved', label: 'Saved Professionals' },
+    { id: 'preferences', label: 'Preferences' },
+  ];
+
+  const handleEditChange = (event) => {
+    const { name, value } = event.target;
+    setEditData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSaveProfile = async () => {
     try {
-      const token = localStorage.getItem('userToken');
-      
+      setError('');
+      setSuccessMessage('');
+
       const response = await fetch(`${API_BASE_URL}/users/profile`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name: editData.name,
           phone: editData.phone,
           address: editData.address,
-          city: editData.city
-        })
+          city: editData.city,
+        }),
       });
 
       if (!response.ok) {
@@ -86,12 +225,13 @@ function Profile() {
       setProfile(updated);
       setEditData(updated);
       setIsEditing(false);
+      setSuccessMessage('Profile updated successfully.');
 
-      // Update user info in localStorage
-      const user = JSON.parse(localStorage.getItem('user'));
-      user.name = updated.name;
-      localStorage.setItem('user', JSON.stringify(user));
-
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      if (user) {
+        user.name = updated.name;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
     } catch (err) {
       setError(err.message || 'Failed to update profile');
     }
@@ -99,23 +239,99 @@ function Profile() {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('userToken');
-      
       await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
       });
     } catch (err) {
       console.error('Logout error:', err);
     }
 
-    // Clear storage
     localStorage.removeItem('userToken');
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
+  };
+
+  const togglePreference = (key) => {
+    setPreferences((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const addWalletTransaction = ({ type, label, amount }) => {
+    setWalletData((current) => ({
+      ...current,
+      transactions: [
+        {
+          id: `txn-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
+          type,
+          label,
+          amount,
+          date: new Date().toISOString(),
+        },
+        ...current.transactions,
+      ].slice(0, 8),
+    }));
+  };
+
+  const handleWalletTopUp = (amount) => {
+    setWalletData((current) => ({
+      ...current,
+      balance: current.balance + amount,
+    }));
+    addWalletTransaction({
+      type: 'credit',
+      label: 'Wallet top-up',
+      amount,
+    });
+    setSuccessMessage(`${formatCurrency(amount)} added to your wallet.`);
+  };
+
+  const handleRedeemCredits = () => {
+    if (walletData.rewardCredits <= 0) {
+      setError('No reward credits available to redeem right now.');
+      return;
+    }
+
+    const redeemAmount = walletData.rewardCredits;
+    setWalletData((current) => ({
+      ...current,
+      balance: current.balance + redeemAmount,
+      rewardCredits: 0,
+    }));
+    addWalletTransaction({
+      type: 'credit',
+      label: 'Reward credits redeemed',
+      amount: redeemAmount,
+    });
+    setSuccessMessage(`${formatCurrency(redeemAmount)} redeemed from reward credits.`);
+  };
+
+  const handleRemoveSavedProfessional = (id) => {
+    const next = savedProfessionals.filter((professional) => String(professional.id) !== String(id));
+    setSavedProfessionals(next);
+    localStorage.setItem('savedProfessionals', JSON.stringify(next));
+
+    try {
+      const ids = JSON.parse(localStorage.getItem('savedProfessionalIds') || '[]');
+      const filteredIds = Array.isArray(ids)
+        ? ids.filter((savedId) => String(savedId) !== String(id))
+        : [];
+      localStorage.setItem('savedProfessionalIds', JSON.stringify(filteredIds));
+    } catch (parseError) {
+      localStorage.setItem('savedProfessionalIds', JSON.stringify([]));
+    }
+  };
+
+  const handleClearSavedProfessionals = () => {
+    setSavedProfessionals([]);
+    localStorage.setItem('savedProfessionals', JSON.stringify([]));
+    localStorage.setItem('savedProfessionalIds', JSON.stringify([]));
   };
 
   if (loading) {
@@ -135,110 +351,389 @@ function Profile() {
   }
 
   const firstName = profile.name?.split(' ')[0] || 'User';
+  const joinedDate = profile.createdAt ? new Date(profile.createdAt).toLocaleDateString() : 'Recently';
 
   return (
     <div className="profile">
-      <h1>My Profile</h1>
-
-      <div className="profile-container">
-        <div className="profile-header">
+      <section className="profile-hero">
+        <div className="profile-hero-left">
           <div className="profile-avatar">{firstName.charAt(0).toUpperCase()}</div>
           <div className="profile-header-info">
-            <h2>{profile.name}</h2>
-            <p>Member since {new Date(profile.createdAt).toLocaleDateString()}</p>
-            <span className="user-type-badge">{profile.userType}</span>
+            <h1>{profile.name}</h1>
+            <p>{profile.email}</p>
+            <div className="hero-meta-row">
+              <span className="user-type-badge">{profile.userType}</span>
+              <span className="joined-badge">Member since {joinedDate}</span>
+            </div>
           </div>
         </div>
+        <div className="profile-hero-actions">
+          <button type="button" onClick={() => navigate('/bookings')}>My Orders</button>
+          <button type="button" onClick={() => navigate('/services')}>Explore Services</button>
+        </div>
+      </section>
 
-        {error && <div className="profile-error">{error}</div>}
+      <section className="profile-insights-grid">
+        <article className="insight-card">
+          <span>Total Orders</span>
+          <strong>{accountStats.total}</strong>
+          <p>All bookings placed so far</p>
+        </article>
+        <article className="insight-card">
+          <span>Upcoming</span>
+          <strong>{accountStats.upcoming}</strong>
+          <p>Pending and confirmed services</p>
+        </article>
+        <article className="insight-card">
+          <span>Completed</span>
+          <strong>{accountStats.completed}</strong>
+          <p>Successfully completed bookings</p>
+        </article>
+        <article className="insight-card">
+          <span>Total Spend</span>
+          <strong>INR {accountStats.spend}</strong>
+          <p>Across active and completed bookings</p>
+        </article>
+      </section>
 
-        {isEditing ? (
-          <div className="profile-edit-form">
-            <h3>Edit Profile</h3>
-            <div className="form-group">
-              <label>Name</label>
-              <input
-                type="text"
-                name="name"
-                value={editData.name || ''}
-                onChange={handleEditChange}
-              />
+      <section className="account-completion">
+        <div>
+          <h2>Account Completion</h2>
+          <p>Complete your profile for smoother checkout and faster support.</p>
+        </div>
+        <div className="completion-meter-wrap">
+          <div className="completion-meter">
+            <div style={{ width: `${accountStats.completion}%` }} />
+          </div>
+          <span>{accountStats.completion}%</span>
+        </div>
+      </section>
+
+      <section className="profile-tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={activeTab === tab.id ? 'active' : ''}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </section>
+
+      {error && <div className="profile-error">{error}</div>}
+      {successMessage && <div className="profile-success">{successMessage}</div>}
+
+      {activeTab === 'overview' && (
+        <>
+          <section className="profile-grid-layout">
+          <div className="profile-panel recent-orders">
+            <div className="panel-header">
+              <h3>Recent Orders</h3>
+              <button type="button" onClick={() => navigate('/bookings')}>View All</button>
             </div>
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                value={editData.email || ''}
-                disabled
-              />
-            </div>
-            <div className="form-group">
-              <label>Phone</label>
-              <input
-                type="tel"
-                name="phone"
-                value={editData.phone || ''}
-                onChange={handleEditChange}
-              />
-            </div>
-            <div className="form-group">
-              <label>City</label>
-              <input
-                type="text"
-                name="city"
-                value={editData.city || ''}
-                onChange={handleEditChange}
-              />
-            </div>
-            <div className="form-group">
-              <label>Address</label>
-              <textarea
-                name="address"
-                value={editData.address || ''}
-                onChange={handleEditChange}
-                rows="3"
-              />
-            </div>
-            <div className="edit-actions">
-              <button className="btn-save" onClick={handleSaveProfile}>Save Changes</button>
-              <button className="btn-cancel" onClick={() => setIsEditing(false)}>Cancel</button>
+            {recentBookings.length ? (
+              <div className="timeline-list">
+                {recentBookings.map((booking) => (
+                  <article key={booking._id} className="timeline-item">
+                    <div>
+                      <h4>{booking?.serviceId?.name || 'Service'}</h4>
+                      <p>
+                        {booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString() : '-'} at {booking.scheduledTime || '-'}
+                      </p>
+                    </div>
+                    <div className="timeline-right">
+                      <span className={`status-pill ${booking.status || 'pending'}`}>{(booking.status || 'pending').replace('-', ' ')}</span>
+                      <strong>INR {booking.price || 0}</strong>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-note">No orders yet. Start by exploring our top-rated services.</p>
+            )}
+          </div>
+
+          <div className="profile-panel quick-actions-panel">
+            <h3>Quick Actions</h3>
+            <div className="quick-actions-grid">
+              <button type="button" onClick={() => navigate('/services')}>Book a Service</button>
+              <button type="button" onClick={() => navigate('/professionals')}>Find Professionals</button>
+              <button type="button" onClick={() => setActiveTab('account')}>Update Address</button>
+              <button type="button" onClick={() => navigate('/bookings')}>Track Bookings</button>
             </div>
           </div>
-        ) : (
-          <div className="profile-details">
-            <div className="detail-item">
-              <label>Email</label>
-              <p>{profile.email}</p>
-            </div>
-            <div className="detail-item">
-              <label>Phone</label>
-              <p>{profile.phone || 'Not provided'}</p>
-            </div>
-            <div className="detail-item">
-              <label>City</label>
-              <p>{profile.city || 'Not provided'}</p>
-            </div>
-            <div className="detail-item">
-              <label>Address</label>
-              <p>{profile.address || 'Not provided'}</p>
-            </div>
-          </div>
-        )}
+          </section>
 
-        <div className="profile-actions">
-          {!isEditing && (
-            <>
-              <button className="btn-edit" onClick={() => setIsEditing(true)}>Edit Profile</button>
-              <button className="btn-history">View History</button>
-            </>
+          <section className="profile-grid-layout wallet-saved-preview">
+            <div className="profile-panel wallet-preview-panel">
+              <div className="panel-header">
+                <h3>My Wallet</h3>
+                <button type="button" onClick={() => setActiveTab('wallet')}>Open Wallet</button>
+              </div>
+              <div className="wallet-preview-grid">
+                <div>
+                  <span>Current Balance</span>
+                  <strong>{formatCurrency(walletData.balance)}</strong>
+                </div>
+                <div>
+                  <span>Reward Credits</span>
+                  <strong>{formatCurrency(walletData.rewardCredits)}</strong>
+                </div>
+                <div>
+                  <span>Pending Refund</span>
+                  <strong>{formatCurrency(walletData.pendingRefund)}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="profile-panel saved-preview-panel">
+              <div className="panel-header">
+                <h3>Saved Professionals</h3>
+                <button type="button" onClick={() => setActiveTab('saved')}>Manage Saved</button>
+              </div>
+              {savedProfessionals.length ? (
+                <div className="saved-preview-list">
+                  {savedProfessionals.slice(0, 3).map((professional) => (
+                    <article key={`saved-preview-${professional.id}`}>
+                      <strong>{professional.name}</strong>
+                      <p>{professional.specialization} | ⭐ {Number(professional.rating || 0).toFixed(1)}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-note">No saved professionals yet. Save favorites from the professionals catalog.</p>
+              )}
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeTab === 'account' && (
+        <section className="profile-panel account-panel">
+          <div className="panel-header">
+            <h3>Account Details</h3>
+            {!isEditing && (
+              <button type="button" onClick={() => setIsEditing(true)}>Edit Profile</button>
+            )}
+          </div>
+
+          {isEditing ? (
+            <div className="profile-edit-form">
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={editData.name || ''}
+                  onChange={handleEditChange}
+                />
+              </div>
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={editData.email || ''}
+                  disabled
+                />
+              </div>
+              <div className="form-group">
+                <label>Phone</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={editData.phone || ''}
+                  onChange={handleEditChange}
+                />
+              </div>
+              <div className="form-group">
+                <label>City</label>
+                <input
+                  type="text"
+                  name="city"
+                  value={editData.city || ''}
+                  onChange={handleEditChange}
+                />
+              </div>
+              <div className="form-group">
+                <label>Address</label>
+                <textarea
+                  name="address"
+                  value={editData.address || ''}
+                  onChange={handleEditChange}
+                  rows="3"
+                />
+              </div>
+              <div className="edit-actions">
+                <button className="btn-save" onClick={handleSaveProfile}>Save Changes</button>
+                <button className="btn-cancel" onClick={() => setIsEditing(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="profile-details">
+              <div className="detail-item">
+                <label>Email</label>
+                <p>{profile.email}</p>
+              </div>
+              <div className="detail-item">
+                <label>Phone</label>
+                <p>{profile.phone || 'Not provided'}</p>
+              </div>
+              <div className="detail-item">
+                <label>City</label>
+                <p>{profile.city || 'Not provided'}</p>
+              </div>
+              <div className="detail-item full-row">
+                <label>Address</label>
+                <p>{profile.address || 'Not provided'}</p>
+              </div>
+            </div>
           )}
-        </div>
+        </section>
+      )}
 
-        <div className="profile-danger-zone">
+      {activeTab === 'preferences' && (
+        <section className="profile-grid-layout">
+          <div className="profile-panel preferences-panel">
+            <h3>Notification Preferences</h3>
+            <p className="panel-subtitle">Control how you hear from us about bookings and offers.</p>
+            <div className="toggle-list">
+              <button type="button" className="toggle-row" onClick={() => togglePreference('orderAlerts')}>
+                <div>
+                  <strong>Order Alerts</strong>
+                  <p>Instant updates for booked services.</p>
+                </div>
+                <span className={`switch ${preferences.orderAlerts ? 'on' : ''}`} />
+              </button>
+              <button type="button" className="toggle-row" onClick={() => togglePreference('offersAndDeals')}>
+                <div>
+                  <strong>Offers & Deals</strong>
+                  <p>Personalized discounts and limited offers.</p>
+                </div>
+                <span className={`switch ${preferences.offersAndDeals ? 'on' : ''}`} />
+              </button>
+              <button type="button" className="toggle-row" onClick={() => togglePreference('serviceReminders')}>
+                <div>
+                  <strong>Service Reminders</strong>
+                  <p>Periodic reminders for recurring services.</p>
+                </div>
+                <span className={`switch ${preferences.serviceReminders ? 'on' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className="profile-panel profile-danger-zone">
+            <h3>Account Actions</h3>
+            <p>Sign out securely from this device at any time.</p>
+            <button className="btn-logout" onClick={handleLogout}>Logout</button>
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'wallet' && (
+        <section className="profile-grid-layout">
+          <div className="profile-panel wallet-panel">
+            <h3>Wallet Overview</h3>
+            <div className="wallet-balance-card">
+              <p>Available Balance</p>
+              <strong>{formatCurrency(walletData.balance)}</strong>
+              <span>Use wallet balance for faster checkout on bookings.</span>
+            </div>
+
+            <div className="wallet-grid">
+              <div>
+                <label>Reward Credits</label>
+                <p>{formatCurrency(walletData.rewardCredits)}</p>
+              </div>
+              <div>
+                <label>Pending Refund</label>
+                <p>{formatCurrency(walletData.pendingRefund)}</p>
+              </div>
+              <div>
+                <label>Last Updated</label>
+                <p>{new Date().toLocaleTimeString()}</p>
+              </div>
+            </div>
+
+            <div className="wallet-actions">
+              <button type="button" onClick={() => handleWalletTopUp(250)}>+ Add INR 250</button>
+              <button type="button" onClick={() => handleWalletTopUp(500)}>+ Add INR 500</button>
+              <button type="button" onClick={() => handleWalletTopUp(1000)}>+ Add INR 1000</button>
+              <button type="button" className="secondary" onClick={handleRedeemCredits}>Redeem Credits</button>
+            </div>
+          </div>
+
+          <div className="profile-panel wallet-transactions-panel">
+            <h3>Recent Wallet Activity</h3>
+            {walletData.transactions.length ? (
+              <div className="wallet-transactions-list">
+                {walletData.transactions.map((transaction) => (
+                  <article key={transaction.id} className="wallet-transaction-item">
+                    <div>
+                      <strong>{transaction.label}</strong>
+                      <p>{new Date(transaction.date).toLocaleString()}</p>
+                    </div>
+                    <span className={`wallet-txn-amount ${transaction.type}`}>
+                      {transaction.type === 'debit' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-note">No wallet activity yet.</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'saved' && (
+        <section className="profile-panel saved-pros-panel">
+          <div className="panel-header">
+            <h3>Saved Professionals</h3>
+            {savedProfessionals.length > 0 && (
+              <button type="button" onClick={handleClearSavedProfessionals}>Clear All</button>
+            )}
+          </div>
+
+          {savedProfessionals.length ? (
+            <div className="saved-pros-grid">
+              {savedProfessionals.map((professional) => (
+                <article key={`saved-pro-${professional.id}`} className="saved-pro-card">
+                  <div className="saved-pro-top">
+                    <span className="saved-pro-badge">{professional.badge || 'Saved'}</span>
+                    <button type="button" onClick={() => handleRemoveSavedProfessional(professional.id)}>Remove</button>
+                  </div>
+                  <h4>{professional.name}</h4>
+                  <p>{professional.specialization}</p>
+                  <div className="saved-pro-meta">
+                    <span>⭐ {Number(professional.rating || 0).toFixed(1)}</span>
+                    <span>{professional.experienceYears || 0}+ yrs</span>
+                    <span>{professional.location || 'Lucknow'}</span>
+                  </div>
+                  <div className="saved-pro-footer">
+                    <strong>{formatCurrency(professional.startingPrice || 0)}</strong>
+                    <button type="button" onClick={() => navigate('/professionals')}>View Profile</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="saved-empty-state">
+              <p>No saved professionals yet. Tap the heart icon on a professional card to save favorites.</p>
+              <button type="button" onClick={() => navigate('/professionals')}>Browse Professionals</button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeTab !== 'preferences' && (
+        <div className="profile-panel profile-danger-zone inline-danger">
           <h3>Account Actions</h3>
+          <p>Sign out securely from this device at any time.</p>
           <button className="btn-logout" onClick={handleLogout}>Logout</button>
         </div>
-      </div>
+      )}
     </div>
   );
 }

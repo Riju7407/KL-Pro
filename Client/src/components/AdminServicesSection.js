@@ -1,4 +1,5 @@
 import React from 'react';
+import { SERVICE_HIERARCHY, getHierarchyOptions, getServiceTypeOptions } from '../config/serviceHierarchy';
 
 function AdminServicesSection({
   services,
@@ -22,10 +23,47 @@ function AdminServicesSection({
     service.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const categories = Object.keys(SERVICE_HIERARCHY);
+
+  const selectedCategory = editingService?.category || '';
+  const selectedSubCategory = editingService?.subCategory || '';
+  const selectedSubSubCategory = editingService?.subSubCategory || '';
+  const hierarchyOptions = getHierarchyOptions(selectedCategory, selectedSubCategory, selectedSubSubCategory);
+  const subCategories = hierarchyOptions.subCategories || [];
+  const subSubCategories = hierarchyOptions.subSubCategories || [];
+  const serviceTypes = getServiceTypeOptions(selectedCategory, selectedSubCategory, selectedSubSubCategory);
+
+  const handleCategoryChange = (categoryValue) => {
+    setEditingService({
+      ...editingService,
+      category: categoryValue,
+      subCategory: '',
+      subSubCategory: '',
+      serviceType: '',
+    });
+  };
+
+  const handleSubCategoryChange = (subCategoryValue) => {
+    setEditingService({
+      ...editingService,
+      subCategory: subCategoryValue,
+      subSubCategory: '',
+      serviceType: '',
+    });
+  };
+
+  const handleSubSubCategoryChange = (subSubCategoryValue) => {
+    setEditingService({
+      ...editingService,
+      subSubCategory: subSubCategoryValue,
+      serviceType: '',
+    });
+  };
+
   return (
     <div className="services-section">
       <div className="services-header">
-        <h2>Services Management</h2>
+        <h2>Catalog Management</h2>
         <button 
           className="btn-add-service"
           onClick={() => {
@@ -33,7 +71,10 @@ function AdminServicesSection({
             setEditingService({
               name: '',
               description: '',
-              category: 'salon',
+              category: 'HelpingHand',
+              subCategory: '',
+              subSubCategory: '',
+              serviceType: '',
               basePrice: 0,
               estimatedDuration: 30,
               image: '',
@@ -41,11 +82,11 @@ function AdminServicesSection({
             });
           }}
         >
-          + Add New Service
+          + Add Service Listing
         </button>
         <input
           type="text"
-          placeholder="Search services..."
+          placeholder="Search catalog by service name or category..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="search-input"
@@ -89,14 +130,59 @@ function AdminServicesSection({
                   <label>Category</label>
                   <select
                     value={editingService.category}
-                    onChange={(e) => setEditingService({...editingService, category: e.target.value})}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
                   >
-                    <option value="hair">Hair</option>
-                    <option value="salon">Salon</option>
-                    <option value="spa">Spa</option>
-                    <option value="makeup">Makeup</option>
-                    <option value="grooming">Grooming</option>
-                    <option value="other">Other</option>
+                    <option value="">Select category</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Subcategory</label>
+                  <select
+                    value={editingService.subCategory || ''}
+                    onChange={(e) => handleSubCategoryChange(e.target.value)}
+                    disabled={!editingService.category}
+                  >
+                    <option value="">Select subcategory</option>
+                    {subCategories.map((subCategory) => (
+                      <option key={subCategory} value={subCategory}>
+                        {subCategory}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Sub-subcategory</label>
+                  <select
+                    value={editingService.subSubCategory || ''}
+                    onChange={(e) => handleSubSubCategoryChange(e.target.value)}
+                    disabled={!editingService.subCategory}
+                  >
+                    <option value="">Select sub-subcategory</option>
+                    {subSubCategories.map((subSubCategory) => (
+                      <option key={subSubCategory} value={subSubCategory}>
+                        {subSubCategory}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Service Type</label>
+                  <select
+                    value={editingService.serviceType || ''}
+                    onChange={(e) => setEditingService({ ...editingService, serviceType: e.target.value })}
+                    disabled={!editingService.subSubCategory}
+                  >
+                    <option value="">Select service type</option>
+                    {serviceTypes.map((serviceType) => (
+                      <option key={serviceType} value={serviceType}>
+                        {serviceType}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group">
@@ -152,6 +238,24 @@ function AdminServicesSection({
                 <span className="label">Category:</span>
                 <span className="badge">{selectedService.category}</span>
               </div>
+              {selectedService.subCategory && (
+                <div className="detail-row">
+                  <span className="label">Subcategory:</span>
+                  <span className="badge">{selectedService.subCategory}</span>
+                </div>
+              )}
+              {selectedService.subSubCategory && (
+                <div className="detail-row">
+                  <span className="label">Sub-subcategory:</span>
+                  <span className="badge">{selectedService.subSubCategory}</span>
+                </div>
+              )}
+              {selectedService.serviceType && (
+                <div className="detail-row">
+                  <span className="label">Service Type:</span>
+                  <span className="badge">{selectedService.serviceType}</span>
+                </div>
+              )}
               <div className="detail-row">
                 <span className="label">Description:</span>
                 <span>{selectedService.description}</span>
@@ -235,15 +339,60 @@ function AdminServicesSection({
               <div className="form-group">
                 <label>Category</label>
                 <select
-                  value={editingService?.category || 'salon'}
-                  onChange={(e) => setEditingService({...editingService, category: e.target.value})}
+                  value={editingService?.category || ''}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
                 >
-                  <option value="hair">Hair</option>
-                  <option value="salon">Salon</option>
-                  <option value="spa">Spa</option>
-                  <option value="makeup">Makeup</option>
-                  <option value="grooming">Grooming</option>
-                  <option value="other">Other</option>
+                  <option value="">Select category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Subcategory</label>
+                <select
+                  value={editingService?.subCategory || ''}
+                  onChange={(e) => handleSubCategoryChange(e.target.value)}
+                  disabled={!editingService?.category}
+                >
+                  <option value="">Select subcategory</option>
+                  {subCategories.map((subCategory) => (
+                    <option key={subCategory} value={subCategory}>
+                      {subCategory}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Sub-subcategory</label>
+                <select
+                  value={editingService?.subSubCategory || ''}
+                  onChange={(e) => handleSubSubCategoryChange(e.target.value)}
+                  disabled={!editingService?.subCategory}
+                >
+                  <option value="">Select sub-subcategory</option>
+                  {subSubCategories.map((subSubCategory) => (
+                    <option key={subSubCategory} value={subSubCategory}>
+                      {subSubCategory}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Service Type</label>
+                <select
+                  value={editingService?.serviceType || ''}
+                  onChange={(e) => setEditingService({ ...editingService, serviceType: e.target.value })}
+                  disabled={!editingService?.subSubCategory}
+                >
+                  <option value="">Select service type</option>
+                  {serviceTypes.map((serviceType) => (
+                    <option key={serviceType} value={serviceType}>
+                      {serviceType}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="form-group">
@@ -297,6 +446,9 @@ function AdminServicesSection({
               <tr>
                 <th>Name</th>
                 <th>Category</th>
+                <th>Subcategory</th>
+                <th>Sub-subcategory</th>
+                <th>Service Type</th>
                 <th>Price</th>
                 <th>Duration</th>
                 <th>Status</th>
@@ -311,6 +463,9 @@ function AdminServicesSection({
                   <tr key={service._id}>
                     <td>{service.name}</td>
                     <td><span className="badge">{service.category}</span></td>
+                    <td>{service.subCategory || '-'}</td>
+                    <td>{service.subSubCategory || '-'}</td>
+                    <td>{service.serviceType || '-'}</td>
                     <td>₹{service.basePrice}</td>
                     <td>{service.estimatedDuration} min</td>
                     <td>{service.isActive ? '✓ Active' : '✗ Inactive'}</td>
@@ -342,7 +497,7 @@ function AdminServicesSection({
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center">No services found</td>
+                  <td colSpan="11" className="text-center">No services found</td>
                 </tr>
               )}
             </tbody>

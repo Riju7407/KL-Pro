@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminServicesSection from '../components/AdminServicesSection';
 import API_BASE_URL from '../config/apiConfig';
+import { SERVICE_HIERARCHY, getHierarchyOptions, getServiceTypeOptions } from '../config/serviceHierarchy';
 import './AdminDashboard.css';
 
 function AdminDashboard() {
@@ -10,7 +11,8 @@ function AdminDashboard() {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('shop');
+  const [theme, setTheme] = useState(() => localStorage.getItem('adminTheme') || 'light');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
@@ -42,6 +44,10 @@ function AdminDashboard() {
       }
     }).finally(() => setLoading(false));
   }, [navigate]);
+
+  useEffect(() => {
+    localStorage.setItem('adminTheme', theme);
+  }, [theme]);
 
   const fetchAdminProfile = async () => {
     const token = localStorage.getItem('adminToken');
@@ -199,6 +205,28 @@ function AdminDashboard() {
         setError('Please fill in all required fields: Name, Description, Category, Price, and Duration');
         return;
       }
+
+      const subCategoryOptions = Object.keys(SERVICE_HIERARCHY[editingService.category] || {});
+      if (subCategoryOptions.length > 0 && !editingService.subCategory) {
+        setError('Please select a subcategory');
+        return;
+      }
+
+      const subSubCategoryOptions = getHierarchyOptions(editingService.category, editingService.subCategory).subSubCategories;
+      if (subSubCategoryOptions.length > 0 && !editingService.subSubCategory) {
+        setError('Please select a sub-subcategory');
+        return;
+      }
+
+      const serviceTypeOptions = getServiceTypeOptions(
+        editingService.category,
+        editingService.subCategory,
+        editingService.subSubCategory
+      );
+      if (serviceTypeOptions.length > 0 && !editingService.serviceType) {
+        setError('Please select a service type');
+        return;
+      }
       
       const token = localStorage.getItem('adminToken');
       const formData = new FormData();
@@ -206,6 +234,9 @@ function AdminDashboard() {
       formData.append('name', editingService.name);
       formData.append('description', editingService.description);
       formData.append('category', editingService.category);
+      formData.append('subCategory', editingService.subCategory || '');
+      formData.append('subSubCategory', editingService.subSubCategory || '');
+      formData.append('serviceType', editingService.serviceType || '');
       formData.append('basePrice', editingService.basePrice);
       formData.append('estimatedDuration', editingService.estimatedDuration);
       formData.append('isActive', editingService.isActive);
@@ -252,6 +283,28 @@ function AdminDashboard() {
         setError('Please fill in all required fields: Name, Description, Category, Price, and Duration');
         return;
       }
+
+      const subCategoryOptions = Object.keys(SERVICE_HIERARCHY[editingService.category] || {});
+      if (subCategoryOptions.length > 0 && !editingService.subCategory) {
+        setError('Please select a subcategory');
+        return;
+      }
+
+      const subSubCategoryOptions = getHierarchyOptions(editingService.category, editingService.subCategory).subSubCategories;
+      if (subSubCategoryOptions.length > 0 && !editingService.subSubCategory) {
+        setError('Please select a sub-subcategory');
+        return;
+      }
+
+      const serviceTypeOptions = getServiceTypeOptions(
+        editingService.category,
+        editingService.subCategory,
+        editingService.subSubCategory
+      );
+      if (serviceTypeOptions.length > 0 && !editingService.serviceType) {
+        setError('Please select a service type');
+        return;
+      }
       
       const token = localStorage.getItem('adminToken');
       const formData = new FormData();
@@ -259,6 +312,9 @@ function AdminDashboard() {
       formData.append('name', editingService.name);
       formData.append('description', editingService.description);
       formData.append('category', editingService.category);
+      formData.append('subCategory', editingService.subCategory || '');
+      formData.append('subSubCategory', editingService.subSubCategory || '');
+      formData.append('serviceType', editingService.serviceType || '');
       formData.append('basePrice', editingService.basePrice);
       formData.append('estimatedDuration', editingService.estimatedDuration);
       
@@ -267,6 +323,9 @@ function AdminDashboard() {
         name: editingService.name,
         description: editingService.description,
         category: editingService.category,
+        subCategory: editingService.subCategory,
+        subSubCategory: editingService.subSubCategory,
+        serviceType: editingService.serviceType,
         basePrice: editingService.basePrice,
         estimatedDuration: editingService.estimatedDuration,
         hasImage: !!serviceImageFile
@@ -362,6 +421,174 @@ function AdminDashboard() {
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const adminEmail = localStorage.getItem('adminEmail') || 'Administrator';
+  const totalServices = services.length;
+  const activeServices = services.filter((service) => service.isActive).length;
+  const mostBookedServices = services.filter((service) => service.isMostBooked).length;
+  const todayLabel = new Date().toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const categorySplit = services.reduce((acc, service) => {
+    const key = service.category || 'Other';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  const categoryColors = ['#00a6fb', '#2a9d8f', '#ff9f1c', '#ef476f', '#7b2cbf', '#3d5a80'];
+  const categoryEntries = Object.entries(categorySplit)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([category, count], index) => ({
+      category,
+      count,
+      percent: totalServices > 0 ? Math.round((count / totalServices) * 100) : 0,
+      color: categoryColors[index % categoryColors.length]
+    }));
+
+  let runningAngle = 0;
+  const donutSegments = categoryEntries.map((item) => {
+    const sweep = Math.round((item.count / Math.max(totalServices, 1)) * 360);
+    const segment = `${item.color} ${runningAngle}deg ${runningAngle + sweep}deg`;
+    runningAngle += sweep;
+    return segment;
+  });
+
+  const donutStyle = {
+    background: donutSegments.length > 0
+      ? `conic-gradient(${donutSegments.join(', ')})`
+      : 'conic-gradient(#dbe5f0 0deg 360deg)'
+  };
+
+  const getDateKey = (date) => new Date(date).toISOString().slice(0, 10);
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date();
+    day.setDate(day.getDate() - (6 - index));
+    return {
+      key: getDateKey(day),
+      label: day.toLocaleDateString('en-US', { weekday: 'short' })
+    };
+  });
+
+  const weeklyGrowthData = weekDays.map((day) => {
+    const value = users.filter((user) => user.createdAt && getDateKey(user.createdAt) === day.key).length;
+    return {
+      label: day.label,
+      value
+    };
+  });
+
+  const weeklyMax = Math.max(...weeklyGrowthData.map((point) => point.value), 1);
+  let latestVerification = statistics?.totalUsers
+    ? Math.round(((statistics?.verifiedUsers || 0) / statistics.totalUsers) * 100)
+    : 0;
+
+  const verificationTrendData = weekDays.map((day) => {
+    const dayUsers = users.filter((user) => user.createdAt && getDateKey(user.createdAt) === day.key);
+    if (dayUsers.length === 0) {
+      return { label: day.label, value: latestVerification };
+    }
+
+    const verifiedCount = dayUsers.filter((user) => user.isVerified).length;
+    latestVerification = Math.round((verifiedCount / dayUsers.length) * 100);
+    return { label: day.label, value: latestVerification };
+  });
+
+  const trendPoints = verificationTrendData
+    .map((point, index) => {
+      const x = verificationTrendData.length === 1 ? 50 : (index / (verificationTrendData.length - 1)) * 100;
+      const y = 40 - (Math.min(100, Math.max(0, point.value)) / 100) * 35;
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  const sidebarItems = [
+    { id: 'shop', icon: '🛍️', label: 'Shop', count: statistics?.totalUsers || 0 },
+    { id: 'orders', icon: '📦', label: 'Orders', count: 0 },
+    { id: 'customers', icon: '👥', label: 'Customers', count: users.length },
+    { id: 'catalog', icon: '🧾', label: 'Catalog', count: services.length },
+    { id: 'analytics', icon: '📈', label: 'Analytics', count: 3 },
+    { id: 'settings', icon: '⚙️', label: 'Settings', count: null }
+  ];
+
+  const renderCharts = () => (
+    <section className="charts-grid">
+      <article className="chart-card">
+        <div className="chart-head">
+          <h3>Weekly Growth</h3>
+          <span>User registrations</span>
+        </div>
+        <div className="weekly-bars">
+          {weeklyGrowthData.map((point) => (
+            <div key={point.label} className="bar-item">
+              <div className="bar-track">
+                <div
+                  className="bar-fill"
+                  style={{ height: `${Math.max(8, Math.round((point.value / weeklyMax) * 100))}%` }}
+                />
+              </div>
+              <span className="bar-value">{point.value}</span>
+              <span className="bar-label">{point.label}</span>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <article className="chart-card">
+        <div className="chart-head">
+          <h3>Service Category Split</h3>
+          <span>Catalog composition</span>
+        </div>
+        <div className="donut-layout">
+          <div className="donut-chart" style={donutStyle}>
+            <span>{totalServices}</span>
+            <small>Services</small>
+          </div>
+          <div className="donut-legend">
+            {categoryEntries.length > 0 ? (
+              categoryEntries.map((item) => (
+                <div key={item.category} className="legend-item">
+                  <span className="legend-swatch" style={{ background: item.color }} />
+                  <span className="legend-text">{item.category}</span>
+                  <span className="legend-value">{item.percent}%</span>
+                </div>
+              ))
+            ) : (
+              <p className="empty-chart">No category data yet.</p>
+            )}
+          </div>
+        </div>
+      </article>
+
+      <article className="chart-card">
+        <div className="chart-head">
+          <h3>Verification Trend</h3>
+          <span>7-day trust score</span>
+        </div>
+        <div className="line-chart-wrap">
+          <svg viewBox="0 0 100 42" className="line-chart" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="0,40 100,40" className="line-grid" />
+            <polyline points={trendPoints} className="line-path" />
+          </svg>
+          <div className="line-chart-footer">
+            {verificationTrendData.map((point) => (
+              <div key={point.label} className="line-dot">
+                <strong>{point.value}%</strong>
+                <span>{point.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </article>
+    </section>
+  );
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   if (loading) {
     return (
       <div className="admin-dashboard-container">
@@ -371,74 +598,150 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="admin-dashboard-container">
-      <div className="admin-header">
-        <div className="admin-header-content">
-          <h1>Admin Dashboard</h1>
-          <button className="admin-logout-btn" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
-      </div>
-
-      {error && <div className="admin-error">{error}</div>}
-
-      <div className="admin-dashboard-content">
-        {/* Overview Statistics */}
-        {activeTab === 'overview' && statistics && (
-          <div className="stats-container">
-            <h2>Statistics</h2>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-value">{statistics.totalUsers}</div>
-                <div className="stat-label">Total Users</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value" style={{color: '#27ae60'}}>{statistics.customers}</div>
-                <div className="stat-label">Customers</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value" style={{color: '#e74c3c'}}>{statistics.professionals}</div>
-                <div className="stat-label">Professionals</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value" style={{color: '#f39c12'}}>{statistics.verifiedUsers}</div>
-                <div className="stat-label">Verified Users</div>
-              </div>
+    <div className={`admin-dashboard-container theme-${theme}`}>
+      <div className="admin-workspace">
+        <aside className="admin-sidebar">
+          <div className="sidebar-brand">
+            <span className="sidebar-logo">KL</span>
+            <div>
+              <p className="sidebar-title">KL Admin</p>
+              <p className="sidebar-subtitle">Commerce Ops</p>
             </div>
           </div>
-        )}
+          <nav className="sidebar-nav" aria-label="Admin navigation">
+            {sidebarItems.map((item) => (
+              <button
+                key={item.id}
+                className={`sidebar-link ${activeTab === item.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(item.id)}
+                type="button"
+              >
+                <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
+                <span className="sidebar-link-text">{item.label}</span>
+                {item.count !== null && <span className="sidebar-count">{item.count}</span>}
+              </button>
+            ))}
+          </nav>
+          <div className="sidebar-footer">
+            <button className="theme-toggle-btn" onClick={toggleTheme} type="button">
+              {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+            </button>
+            <button className="admin-logout-btn sidebar-logout" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        </aside>
 
-        {/* Tabs */}
-        <div className="admin-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            Manage Users
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'services' ? 'active' : ''}`}
-            onClick={() => setActiveTab('services')}
-          >
-            Manage Services
-          </button>
-        </div>
+        <div className="admin-main-panel">
+          <div className="admin-header">
+            <div className="admin-header-content">
+              <div className="admin-header-copy">
+                <p className="admin-kicker">Store Command Center</p>
+                <h1>E-Commerce Admin Panel</h1>
+                <p className="admin-subtitle">Manage customers, services, and platform health from one place.</p>
+                <div className="admin-admin-meta">
+                  <span>{adminEmail}</span>
+                  <span>{todayLabel}</span>
+                </div>
+              </div>
+              <button className="theme-toggle-btn header-theme-toggle" onClick={toggleTheme} type="button">
+                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              </button>
+            </div>
+          </div>
 
-        {/* Users Management */}
-        {activeTab === 'users' && (
+          {error && <div className="admin-error">{error}</div>}
+
+          <div className="admin-dashboard-content">
+            {(activeTab === 'shop' || activeTab === 'analytics') && (
+              <div className="admin-highlight-grid">
+                <article className="highlight-card highlight-users">
+                  <span className="highlight-title">Total Customers</span>
+                  <span className="highlight-value">{statistics?.customers || 0}</span>
+                  <span className="highlight-caption">Registered shopper accounts</span>
+                </article>
+                <article className="highlight-card highlight-services">
+                  <span className="highlight-title">Active Services</span>
+                  <span className="highlight-value">{activeServices}</span>
+                  <span className="highlight-caption">Out of {totalServices} listed services</span>
+                </article>
+                <article className="highlight-card highlight-growth">
+                  <span className="highlight-title">Verified Profiles</span>
+                  <span className="highlight-value">{statistics?.verifiedUsers || 0}</span>
+                  <span className="highlight-caption">KYC and trust-ready users</span>
+                </article>
+                <article className="highlight-card highlight-trending">
+                  <span className="highlight-title">Trending Services</span>
+                  <span className="highlight-value">{mostBookedServices}</span>
+                  <span className="highlight-caption">Marked as most booked</span>
+                </article>
+              </div>
+            )}
+
+            {activeTab === 'shop' && statistics && (
+              <>
+                <div className="stats-container">
+                  <h2>Business Overview</h2>
+                  <div className="stats-grid">
+                    <div className="stat-card">
+                      <div className="stat-value stat-value-total">{statistics.totalUsers}</div>
+                      <div className="stat-label">Total Users</div>
+                      <div className="stat-meta">All registered accounts</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-value stat-value-customers">{statistics.customers}</div>
+                      <div className="stat-label">Customers</div>
+                      <div className="stat-meta">Active marketplace buyers</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-value stat-value-professionals">{statistics.professionals}</div>
+                      <div className="stat-label">Professionals</div>
+                      <div className="stat-meta">Sellers and service experts</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-value stat-value-verified">{statistics.verifiedUsers}</div>
+                      <div className="stat-label">Verified Users</div>
+                      <div className="stat-meta">Trusted platform members</div>
+                    </div>
+                  </div>
+                </div>
+                {renderCharts()}
+              </>
+            )}
+
+            {activeTab === 'orders' && (
+              <section className="users-section">
+                <div className="users-header">
+                  <h2>Orders</h2>
+                </div>
+                <div className="placeholder-panel">
+                  <h3>Order Operations Dashboard</h3>
+                  <p>Connect this panel to your order APIs to track new, packed, shipped, and delivered orders in real time.</p>
+                  <div className="placeholder-metrics">
+                    <article>
+                      <strong>0</strong>
+                      <span>New Orders</span>
+                    </article>
+                    <article>
+                      <strong>0</strong>
+                      <span>Pending Dispatch</span>
+                    </article>
+                    <article>
+                      <strong>0</strong>
+                      <span>Returns</span>
+                    </article>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'customers' && (
           <div className="users-section">
             <div className="users-header">
-              <h2>User Management</h2>
+              <h2>Customer Management</h2>
               <input
                 type="text"
-                placeholder="Search users..."
+                placeholder="Search customer by name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
@@ -605,8 +908,7 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Services Management */}
-        {activeTab === 'services' && (
+        {activeTab === 'catalog' && (
           <AdminServicesSection
             services={services}
             selectedService={selectedService}
@@ -625,6 +927,40 @@ function AdminDashboard() {
             imagePreview={imagePreview}
           />
         )}
+
+            {activeTab === 'analytics' && (
+              <section className="users-section">
+                <div className="users-header">
+                  <h2>Analytics</h2>
+                </div>
+                {renderCharts()}
+              </section>
+            )}
+
+            {activeTab === 'settings' && (
+              <section className="users-section">
+                <div className="users-header">
+                  <h2>Settings</h2>
+                </div>
+                <div className="settings-grid">
+                  <article className="settings-card">
+                    <h3>Appearance</h3>
+                    <p>Choose how your admin panel looks during day and night operations.</p>
+                    <button className="theme-toggle-btn settings-toggle" onClick={toggleTheme} type="button">
+                      {theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme'}
+                    </button>
+                  </article>
+                  <article className="settings-card">
+                    <h3>Admin Session</h3>
+                    <p>Signed in as <strong>{adminEmail}</strong>.</p>
+                    <p>Use secure logout if you are done with dashboard management.</p>
+                    <button className="btn-delete" onClick={handleLogout} type="button">Secure Logout</button>
+                  </article>
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
