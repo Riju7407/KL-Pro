@@ -2,6 +2,15 @@
   "buildCommand": "cd Client && npm run build",
   "installCommand": "cd Client && npm install",
   "outputDirectory": "Client/build",
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
   "regions": ["iad1"],
   "git": {
     "deploymentEnabled": {
