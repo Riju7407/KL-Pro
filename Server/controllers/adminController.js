@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Professional = require('../models/Professional');
 
@@ -15,36 +16,85 @@ const adminLogin = (req, res) => {
       });
     }
 
-    // Check credentials against environment variables
-    if (email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedAdminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const normalizedPassword = String(password).trim();
+    const normalizedAdminPassword = String(process.env.ADMIN_PASSWORD || '').trim();
+
+    // Primary admin auth using environment credentials.
+    if (normalizedEmail === normalizedAdminEmail && normalizedPassword === normalizedAdminPassword) {
+      const token = jwt.sign(
+        {
+          adminId: 'admin_001',
+          email: normalizedAdminEmail,
+          role: 'admin'
+        },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: process.env.JWT_EXPIRY || '7d'
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Login successful',
+        token: token,
+        admin: {
+          email: normalizedAdminEmail,
+          role: 'admin'
+        }
       });
     }
 
-    // Create JWT token with 7 day expiry
-    const token = jwt.sign(
-      {
-        adminId: 'admin_001',
-        email: email,
-        role: 'admin'
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRY || '7d'
-      }
-    );
+    // Fallback admin auth using DB users with userType=admin.
+    return User.findOne({ email: normalizedEmail })
+      .select('+password')
+      .then(async (adminUser) => {
+        if (!adminUser || adminUser.userType !== 'admin') {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid email or password'
+          });
+        }
 
-    res.status(200).json({
-      success: true,
-      message: 'Login successful',
-      token: token,
-      admin: {
-        email: email,
-        role: 'admin'
-      }
-    });
+        const isPasswordCorrect = await bcrypt.compare(normalizedPassword, adminUser.password);
+        if (!isPasswordCorrect) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid email or password'
+          });
+        }
+
+        const token = jwt.sign(
+          {
+            adminId: String(adminUser._id),
+            email: adminUser.email,
+            role: 'admin'
+          },
+          process.env.JWT_SECRET,
+          {
+            expiresIn: process.env.JWT_EXPIRY || '7d'
+          }
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: 'Login successful',
+          token,
+          admin: {
+            email: adminUser.email,
+            role: 'admin'
+          }
+        });
+      })
+      .catch((dbError) => {
+        console.error('Admin DB login error:', dbError);
+        return res.status(500).json({
+          success: false,
+          message: 'Server error during login',
+          error: dbError.message
+        });
+      });
   } catch (error) {
     console.error('Admin login error:', error);
     res.status(500).json({

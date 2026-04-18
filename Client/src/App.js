@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -10,7 +10,6 @@ import Professionals from './pages/Professionals';
 import Bookings from './pages/Bookings';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
-import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
@@ -19,7 +18,7 @@ function App() {
       <div className="App">
         <Routes>
           {/* Admin Routes */}
-          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/login" element={<Navigate to="/login" replace />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
           {/* User Routes */}

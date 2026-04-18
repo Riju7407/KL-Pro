@@ -52,6 +52,11 @@ function AdminDashboard() {
     localStorage.setItem('adminTheme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    setSelectedUser(null);
+    setEditingUser(null);
+  }, [activeTab]);
+
   const fetchAdminProfile = async () => {
     const token = localStorage.getItem('adminToken');
     try {
@@ -463,7 +468,15 @@ function AdminDashboard() {
     navigate('/');
   };
 
-  const filteredUsers = users.filter(user =>
+  const customerUsers = users.filter((user) => user.userType === 'customer');
+  const professionalUsers = users.filter((user) => user.userType === 'professional');
+
+  const filteredCustomers = customerUsers.filter((user) =>
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredProfessionals = professionalUsers.filter((user) =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -471,6 +484,7 @@ function AdminDashboard() {
   const pendingProfessionalApplications = professionalApplications.filter(
     (application) => application.approvalStatus === 'pending'
   );
+  const pendingApplicationsCount = pendingProfessionalApplications.length;
 
   const adminEmail = localStorage.getItem('adminEmail') || 'Administrator';
   const totalServices = services.length;
@@ -557,9 +571,10 @@ function AdminDashboard() {
 
   const sidebarItems = [
     { id: 'shop', icon: '🛍️', label: 'Shop', count: statistics?.totalUsers || 0 },
-    { id: 'orders', icon: '📦', label: 'Orders', count: 0 },
-    { id: 'customers', icon: '👥', label: 'Customers', count: users.length },
-    { id: 'catalog', icon: '🧾', label: 'Catalog', count: services.length },
+    { id: 'orders', icon: '📦', label: 'Booking', count: 0 },
+    { id: 'customers', icon: '👥', label: 'Customers', count: customerUsers.length },
+    { id: 'professionals', icon: '🧑‍🔧', label: 'Professionals', count: professionalUsers.length, pendingCount: pendingApplicationsCount },
+    { id: 'catalog', icon: '🧾', label: 'Services', count: services.length },
     { id: 'analytics', icon: '📈', label: 'Analytics', count: 3 },
     { id: 'settings', icon: '⚙️', label: 'Settings', count: null }
   ];
@@ -670,6 +685,7 @@ function AdminDashboard() {
                 <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
                 <span className="sidebar-link-text">{item.label}</span>
                 {item.count !== null && <span className="sidebar-count">{item.count}</span>}
+                {item.pendingCount > 0 && <span className="sidebar-pending-badge">{item.pendingCount}</span>}
               </button>
             ))}
           </nav>
@@ -700,6 +716,22 @@ function AdminDashboard() {
               </button>
             </div>
           </div>
+
+          {pendingApplicationsCount > 0 && (
+            <div className="admin-top-notification" role="status" aria-live="polite">
+              <div>
+                <strong>{pendingApplicationsCount} professional registration request{pendingApplicationsCount > 1 ? 's' : ''} pending</strong>
+                <p>Review PAN/Aadhaar documents and approve or reject from Customer Management.</p>
+              </div>
+              <button
+                type="button"
+                className="admin-top-notification-btn"
+                onClick={() => setActiveTab('customers')}
+              >
+                Review Now
+              </button>
+            </div>
+          )}
 
           {error && <div className="admin-error">{error}</div>}
 
@@ -797,89 +829,6 @@ function AdminDashboard() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
               />
-            </div>
-
-            <div className="professional-applications-panel">
-              <h3>Professional Registration Requests</h3>
-              {pendingProfessionalApplications.length === 0 ? (
-                <p className="professional-applications-empty">No pending professional registrations.</p>
-              ) : (
-                <div className="users-table-container">
-                  <table className="users-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Category</th>
-                        <th>Subcategory</th>
-                        <th>PAN</th>
-                        <th>PAN Image</th>
-                        <th>Aadhaar</th>
-                        <th>Aadhaar Image</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingProfessionalApplications.map((application) => (
-                        <tr key={application._id}>
-                          <td>{application.userId?.name || 'Unknown'}</td>
-                          <td>{application.userId?.email || 'Unknown'}</td>
-                          <td>{application.category || '-'}</td>
-                          <td>{application.subCategory || '-'}</td>
-                          <td>{application.panCardNumber || '-'}</td>
-                          <td>
-                            {application.panCardImageUrl ? (
-                              <a
-                                href={application.panCardImageUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="kyc-doc-link"
-                              >
-                                View Image
-                              </a>
-                            ) : (
-                              '-'
-                            )}
-                          </td>
-                          <td>{application.aadhaarCardNumber || '-'}</td>
-                          <td>
-                            {application.aadhaarCardImageUrl ? (
-                              <a
-                                href={application.aadhaarCardImageUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="kyc-doc-link"
-                              >
-                                View Image
-                              </a>
-                            ) : (
-                              '-'
-                            )}
-                          </td>
-                          <td>
-                            <button
-                              className="btn-view"
-                              type="button"
-                              disabled={applicationActionLoadingId === application._id}
-                              onClick={() => handleReviewProfessional(application._id, 'approved')}
-                            >
-                              Approve
-                            </button>
-                            <button
-                              className="btn-delete-small"
-                              type="button"
-                              disabled={applicationActionLoadingId === application._id}
-                              onClick={() => handleReviewProfessional(application._id, 'rejected')}
-                            >
-                              Reject
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </div>
 
             {selectedUser ? (
@@ -1006,8 +955,8 @@ function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.length > 0 ? (
-                      filteredUsers.map(user => (
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map(user => (
                         <tr key={user._id}>
                           <td>{user.name}</td>
                           <td>{user.email}</td>
@@ -1033,6 +982,240 @@ function AdminDashboard() {
                     ) : (
                       <tr>
                         <td colSpan="6" className="text-center">No users found</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'professionals' && (
+          <div className="users-section">
+            <div className="users-header">
+              <h2>Professional Management</h2>
+              <input
+                type="text"
+                placeholder="Search professional by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+
+            <div className="professional-applications-panel">
+              <h3>Professional Registration Requests</h3>
+              {pendingProfessionalApplications.length === 0 ? (
+                <p className="professional-applications-empty">No pending professional registrations.</p>
+              ) : (
+                <div className="users-table-container">
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Category</th>
+                        <th>Subcategory</th>
+                        <th>PAN</th>
+                        <th>PAN Image</th>
+                        <th>Aadhaar</th>
+                        <th>Aadhaar Image</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingProfessionalApplications.map((application) => (
+                        <tr key={application._id}>
+                          <td>{application.userId?.name || 'Unknown'}</td>
+                          <td>{application.userId?.email || 'Unknown'}</td>
+                          <td>{application.category || '-'}</td>
+                          <td>{application.subCategory || '-'}</td>
+                          <td>{application.panCardNumber || '-'}</td>
+                          <td>
+                            {application.panCardImageUrl ? (
+                              <a
+                                href={application.panCardImageUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="kyc-doc-link"
+                              >
+                                View Image
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td>{application.aadhaarCardNumber || '-'}</td>
+                          <td>
+                            {application.aadhaarCardImageUrl ? (
+                              <a
+                                href={application.aadhaarCardImageUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="kyc-doc-link"
+                              >
+                                View Image
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              className="btn-view"
+                              type="button"
+                              disabled={applicationActionLoadingId === application._id}
+                              onClick={() => handleReviewProfessional(application._id, 'approved')}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="btn-delete-small"
+                              type="button"
+                              disabled={applicationActionLoadingId === application._id}
+                              onClick={() => handleReviewProfessional(application._id, 'rejected')}
+                            >
+                              Reject
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {selectedUser ? (
+              <div className="user-detail-view">
+                <button
+                  className="back-btn"
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setEditingUser(null);
+                  }}
+                >
+                  ← Back to List
+                </button>
+
+                {editingUser ? (
+                  <div className="user-edit-form">
+                    <h3>Edit Professional</h3>
+                    <div className="form-group">
+                      <label>Name</label>
+                      <input
+                        type="text"
+                        value={editingUser.name}
+                        onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Email</label>
+                      <input type="email" value={editingUser.email} disabled />
+                    </div>
+                    <div className="form-group">
+                      <label>Phone</label>
+                      <input
+                        type="tel"
+                        value={editingUser.phone}
+                        onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>City</label>
+                      <input
+                        type="text"
+                        value={editingUser.city}
+                        onChange={(e) => setEditingUser({ ...editingUser, city: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Verified</label>
+                      <input
+                        type="checkbox"
+                        checked={editingUser.isVerified}
+                        onChange={(e) => setEditingUser({ ...editingUser, isVerified: e.target.checked })}
+                      />
+                    </div>
+                    <div className="form-actions">
+                      <button className="btn-save" onClick={handleUpdateUser}>Save Changes</button>
+                      <button className="btn-cancel" onClick={() => setEditingUser(null)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="user-detail-card">
+                    <h3>{selectedUser.name}</h3>
+                    <div className="detail-row">
+                      <span className="label">Email:</span>
+                      <span>{selectedUser.email}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Phone:</span>
+                      <span>{selectedUser.phone || 'Not provided'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">City:</span>
+                      <span>{selectedUser.city || 'Not provided'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Type:</span>
+                      <span className="badge">{selectedUser.userType}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Verified:</span>
+                      <span>{selectedUser.isVerified ? '✓ Yes' : '✗ No'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Member Since:</span>
+                      <span>{new Date(selectedUser.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="detail-actions">
+                      <button className="btn-edit" onClick={() => setEditingUser({ ...selectedUser })}>
+                        Edit Professional
+                      </button>
+                      <button className="btn-delete" onClick={() => handleDeleteUser(selectedUser._id)}>
+                        Delete Professional
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="users-table-container">
+                <table className="users-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Type</th>
+                      <th>Verified</th>
+                      <th>Joined</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProfessionals.length > 0 ? (
+                      filteredProfessionals.map((user) => (
+                        <tr key={user._id}>
+                          <td>{user.name}</td>
+                          <td>{user.email}</td>
+                          <td><span className="badge">{user.userType}</span></td>
+                          <td>{user.isVerified ? '✓' : '✗'}</td>
+                          <td>{new Date(user.createdAt).toLocaleDateString()}</td>
+                          <td>
+                            <button className="btn-view" onClick={() => setSelectedUser(user)}>
+                              View
+                            </button>
+                            <button className="btn-delete-small" onClick={() => handleDeleteUser(user._id)}>
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="text-center">No professionals found</td>
                       </tr>
                     )}
                   </tbody>

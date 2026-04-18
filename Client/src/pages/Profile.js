@@ -1,28 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import './Profile.css';
-
-const DEFAULT_WALLET = {
-  balance: 1850,
-  rewardCredits: 220,
-  pendingRefund: 0,
-  transactions: [
-    {
-      id: 'txn-1',
-      type: 'credit',
-      label: 'Welcome wallet bonus',
-      amount: 150,
-      date: new Date().toISOString(),
-    },
-  ],
-};
 
 const formatCurrency = (amount) => `INR ${Number(amount || 0).toLocaleString('en-IN')}`;
 
 function Profile() {
   const navigate = useNavigate();
   const authToken = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
+  const accountSectionRef = useRef(null);
 
   const [profile, setProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -38,21 +24,6 @@ function Profile() {
       return Array.isArray(stored) ? stored : [];
     } catch (parseError) {
       return [];
-    }
-  });
-  const [walletData, setWalletData] = useState(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('walletData') || 'null');
-      if (stored && typeof stored === 'object') {
-        return {
-          ...DEFAULT_WALLET,
-          ...stored,
-          transactions: Array.isArray(stored.transactions) ? stored.transactions : DEFAULT_WALLET.transactions,
-        };
-      }
-      return DEFAULT_WALLET;
-    } catch (parseError) {
-      return DEFAULT_WALLET;
     }
   });
   const [preferences, setPreferences] = useState(() => {
@@ -133,10 +104,6 @@ function Profile() {
   }, [preferences]);
 
   useEffect(() => {
-    localStorage.setItem('walletData', JSON.stringify(walletData));
-  }, [walletData]);
-
-  useEffect(() => {
     const syncSaved = () => {
       try {
         const stored = JSON.parse(localStorage.getItem('savedProfessionals') || '[]');
@@ -185,7 +152,6 @@ function Profile() {
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'account', label: 'Account Details' },
-    { id: 'wallet', label: 'My Wallet' },
     { id: 'saved', label: 'Saved Professionals' },
     { id: 'preferences', label: 'Preferences' },
   ];
@@ -263,55 +229,6 @@ function Profile() {
     }));
   };
 
-  const addWalletTransaction = ({ type, label, amount }) => {
-    setWalletData((current) => ({
-      ...current,
-      transactions: [
-        {
-          id: `txn-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`,
-          type,
-          label,
-          amount,
-          date: new Date().toISOString(),
-        },
-        ...current.transactions,
-      ].slice(0, 8),
-    }));
-  };
-
-  const handleWalletTopUp = (amount) => {
-    setWalletData((current) => ({
-      ...current,
-      balance: current.balance + amount,
-    }));
-    addWalletTransaction({
-      type: 'credit',
-      label: 'Wallet top-up',
-      amount,
-    });
-    setSuccessMessage(`${formatCurrency(amount)} added to your wallet.`);
-  };
-
-  const handleRedeemCredits = () => {
-    if (walletData.rewardCredits <= 0) {
-      setError('No reward credits available to redeem right now.');
-      return;
-    }
-
-    const redeemAmount = walletData.rewardCredits;
-    setWalletData((current) => ({
-      ...current,
-      balance: current.balance + redeemAmount,
-      rewardCredits: 0,
-    }));
-    addWalletTransaction({
-      type: 'credit',
-      label: 'Reward credits redeemed',
-      amount: redeemAmount,
-    });
-    setSuccessMessage(`${formatCurrency(redeemAmount)} redeemed from reward credits.`);
-  };
-
   const handleRemoveSavedProfessional = (id) => {
     const next = savedProfessionals.filter((professional) => String(professional.id) !== String(id));
     setSavedProfessionals(next);
@@ -332,6 +249,17 @@ function Profile() {
     setSavedProfessionals([]);
     localStorage.setItem('savedProfessionals', JSON.stringify([]));
     localStorage.setItem('savedProfessionalIds', JSON.stringify([]));
+  };
+
+  const openEditProfile = () => {
+    setEditData(profile || {});
+    setActiveTab('account');
+    setIsEditing(true);
+
+    // Wait for the account panel to render before scrolling.
+    window.requestAnimationFrame(() => {
+      accountSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   if (loading) {
@@ -370,6 +298,7 @@ function Profile() {
         <div className="profile-hero-actions">
           <button type="button" onClick={() => navigate('/bookings')}>My Orders</button>
           <button type="button" onClick={() => navigate('/services')}>Explore Services</button>
+          <button type="button" onClick={openEditProfile}>Edit Profile</button>
         </div>
       </section>
 
@@ -465,57 +394,33 @@ function Profile() {
             </div>
           </div>
           </section>
-
-          <section className="profile-grid-layout wallet-saved-preview">
-            <div className="profile-panel wallet-preview-panel">
-              <div className="panel-header">
-                <h3>My Wallet</h3>
-                <button type="button" onClick={() => setActiveTab('wallet')}>Open Wallet</button>
-              </div>
-              <div className="wallet-preview-grid">
-                <div>
-                  <span>Current Balance</span>
-                  <strong>{formatCurrency(walletData.balance)}</strong>
-                </div>
-                <div>
-                  <span>Reward Credits</span>
-                  <strong>{formatCurrency(walletData.rewardCredits)}</strong>
-                </div>
-                <div>
-                  <span>Pending Refund</span>
-                  <strong>{formatCurrency(walletData.pendingRefund)}</strong>
-                </div>
-              </div>
+          <section className="profile-panel saved-preview-panel">
+            <div className="panel-header">
+              <h3>Saved Professionals</h3>
+              <button type="button" onClick={() => setActiveTab('saved')}>Manage Saved</button>
             </div>
-
-            <div className="profile-panel saved-preview-panel">
-              <div className="panel-header">
-                <h3>Saved Professionals</h3>
-                <button type="button" onClick={() => setActiveTab('saved')}>Manage Saved</button>
+            {savedProfessionals.length ? (
+              <div className="saved-preview-list">
+                {savedProfessionals.slice(0, 3).map((professional) => (
+                  <article key={`saved-preview-${professional.id}`}>
+                    <strong>{professional.name}</strong>
+                    <p>{professional.specialization} | ⭐ {Number(professional.rating || 0).toFixed(1)}</p>
+                  </article>
+                ))}
               </div>
-              {savedProfessionals.length ? (
-                <div className="saved-preview-list">
-                  {savedProfessionals.slice(0, 3).map((professional) => (
-                    <article key={`saved-preview-${professional.id}`}>
-                      <strong>{professional.name}</strong>
-                      <p>{professional.specialization} | ⭐ {Number(professional.rating || 0).toFixed(1)}</p>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="empty-note">No saved professionals yet. Save favorites from the professionals catalog.</p>
-              )}
-            </div>
+            ) : (
+              <p className="empty-note">No saved professionals yet. Save favorites from the professionals catalog.</p>
+            )}
           </section>
         </>
       )}
 
       {activeTab === 'account' && (
-        <section className="profile-panel account-panel">
+        <section ref={accountSectionRef} className="profile-panel account-panel">
           <div className="panel-header">
             <h3>Account Details</h3>
             {!isEditing && (
-              <button type="button" onClick={() => setIsEditing(true)}>Edit Profile</button>
+              <button type="button" onClick={openEditProfile}>Edit Profile</button>
             )}
           </div>
 
@@ -627,62 +532,6 @@ function Profile() {
             <h3>Account Actions</h3>
             <p>Sign out securely from this device at any time.</p>
             <button className="btn-logout" onClick={handleLogout}>Logout</button>
-          </div>
-        </section>
-      )}
-
-      {activeTab === 'wallet' && (
-        <section className="profile-grid-layout">
-          <div className="profile-panel wallet-panel">
-            <h3>Wallet Overview</h3>
-            <div className="wallet-balance-card">
-              <p>Available Balance</p>
-              <strong>{formatCurrency(walletData.balance)}</strong>
-              <span>Use wallet balance for faster checkout on bookings.</span>
-            </div>
-
-            <div className="wallet-grid">
-              <div>
-                <label>Reward Credits</label>
-                <p>{formatCurrency(walletData.rewardCredits)}</p>
-              </div>
-              <div>
-                <label>Pending Refund</label>
-                <p>{formatCurrency(walletData.pendingRefund)}</p>
-              </div>
-              <div>
-                <label>Last Updated</label>
-                <p>{new Date().toLocaleTimeString()}</p>
-              </div>
-            </div>
-
-            <div className="wallet-actions">
-              <button type="button" onClick={() => handleWalletTopUp(250)}>+ Add INR 250</button>
-              <button type="button" onClick={() => handleWalletTopUp(500)}>+ Add INR 500</button>
-              <button type="button" onClick={() => handleWalletTopUp(1000)}>+ Add INR 1000</button>
-              <button type="button" className="secondary" onClick={handleRedeemCredits}>Redeem Credits</button>
-            </div>
-          </div>
-
-          <div className="profile-panel wallet-transactions-panel">
-            <h3>Recent Wallet Activity</h3>
-            {walletData.transactions.length ? (
-              <div className="wallet-transactions-list">
-                {walletData.transactions.map((transaction) => (
-                  <article key={transaction.id} className="wallet-transaction-item">
-                    <div>
-                      <strong>{transaction.label}</strong>
-                      <p>{new Date(transaction.date).toLocaleString()}</p>
-                    </div>
-                    <span className={`wallet-txn-amount ${transaction.type}`}>
-                      {transaction.type === 'debit' ? '-' : '+'}{formatCurrency(transaction.amount)}
-                    </span>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="empty-note">No wallet activity yet.</p>
-            )}
           </div>
         </section>
       )}

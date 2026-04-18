@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY } from '../config/serviceHierarchy';
 import './Login.css';
 
 function Login() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams] = useSearchParams();
+  const initialMode = (searchParams.get('mode') || '').toLowerCase();
+  const [isLogin, setIsLogin] = useState(initialMode !== 'signup');
+  const [loginAs, setLoginAs] = useState('user');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -26,6 +29,11 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const mode = (searchParams.get('mode') || '').toLowerCase();
+    setIsLogin(mode !== 'signup');
+  }, [searchParams]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -88,6 +96,7 @@ function Login() {
         : null;
 
       let response;
+      let data;
       if (isLogin) {
         response = await fetch(`${API_BASE_URL}${endpoint}`, {
           method: 'POST',
@@ -96,6 +105,13 @@ function Login() {
           },
           body: JSON.stringify(payload)
         });
+
+        data = await response.json();
+
+        if (!response.ok) {
+          setError(data.message || 'Login failed');
+          return;
+        }
       } else {
         const registerData = new FormData();
         registerData.append('name', formData.name);
@@ -126,26 +142,46 @@ function Login() {
           method: 'POST',
           body: registerData
         });
-      }
 
-      const data = await response.json();
+        data = await response.json();
 
-      if (!response.ok) {
-        setError(data.message || (isLogin ? 'Login failed' : 'Registration failed'));
-        setLoading(false);
-        return;
+        if (!response.ok) {
+          setError(data.message || 'Registration failed');
+          return;
+        }
       }
 
       if (!isLogin && data.requiresApproval) {
         setError('Registration submitted. Wait for admin approval before login.');
         setIsLogin(true);
-        setLoading(false);
         return;
+      }
+
+      if (isLogin) {
+        const userType = data?.user?.userType;
+        const roleMismatch =
+          (loginAs === 'admin' && userType !== 'admin') ||
+          (loginAs === 'professional' && userType !== 'professional') ||
+          (loginAs === 'user' && userType !== 'customer');
+
+        if (roleMismatch) {
+          setError(`Selected role does not match this account. Please choose ${userType || 'the correct role'} and login again.`);
+          return;
+        }
       }
 
       // Store token and user info if login succeeded
       if (data.token) {
-        localStorage.setItem('userToken', data.token);
+        if (data?.user?.userType === 'admin') {
+          localStorage.removeItem('userToken');
+          localStorage.removeItem('user');
+          localStorage.setItem('adminToken', data.token);
+          localStorage.setItem('adminEmail', data.user.email);
+        } else {
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminEmail');
+          localStorage.setItem('userToken', data.token);
+        }
       }
 
       if (data.user) {
@@ -159,7 +195,11 @@ function Login() {
       }
 
       if (isLogin) {
-        navigate('/');
+        if (data?.user?.userType === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/');
+        }
       }
     } catch (err) {
       setError(err.message || 'Server error. Please try again.');
@@ -170,6 +210,7 @@ function Login() {
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
+    setLoginAs('user');
     setError('');
     setFormData({
       name: '',
@@ -206,6 +247,22 @@ function Login() {
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit} className="login-form">
+          {isLogin && (
+            <div className="form-group">
+              <label htmlFor="loginAs">Login As</label>
+              <select
+                id="loginAs"
+                value={loginAs}
+                onChange={(e) => setLoginAs(e.target.value)}
+                disabled={loading}
+              >
+                <option value="user">User</option>
+                <option value="professional">Professional</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          )}
+
           {!isLogin && (
             <>
               <div className="form-group">
@@ -451,10 +508,6 @@ function Login() {
               {isLogin ? 'Sign up' : 'Login'}
             </button>
           </p>
-        </div>
-
-        <div className="admin-link">
-          <Link to="/admin/login" className="admin-login-link">Admin Login</Link>
         </div>
       </div>
     </div>

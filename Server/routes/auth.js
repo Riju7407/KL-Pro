@@ -176,6 +176,45 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedAdminEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const normalizedPassword = String(password).trim();
+    const normalizedAdminPassword = String(process.env.ADMIN_PASSWORD || '').trim();
+
+    // Unified login: allow admin credentials through the same login form.
+    if (
+      normalizedEmail === normalizedAdminEmail &&
+      normalizedPassword === normalizedAdminPassword
+    ) {
+      const adminToken = jwt.sign(
+        {
+          adminId: 'admin_001',
+          email: normalizedAdminEmail,
+          role: 'admin',
+        },
+        process.env.JWT_SECRET || 'your_secret_key',
+        {
+          expiresIn: process.env.JWT_EXPIRY || '7d',
+        }
+      );
+
+      return res.json({
+        success: true,
+        token: adminToken,
+        user: {
+          id: 'admin_001',
+          name: 'Admin',
+          email: normalizedAdminEmail,
+          userType: 'admin',
+          approvalStatus: 'approved',
+        },
+      });
+    }
+
     // Check if user exists
     const user = await User.findOne({ email }).select('+password');
     if (!user) {

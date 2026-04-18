@@ -1,21 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import './Header.css';
 
 function Header() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [user, setUser] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
+  const [isAdminSession, setIsAdminSession] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
+    const syncAuthState = () => {
+      const adminToken = localStorage.getItem('adminToken');
+      const adminEmail = localStorage.getItem('adminEmail');
+      const userToken = localStorage.getItem('userToken') || localStorage.getItem('token');
+      const storedUserRaw = localStorage.getItem('user');
+
+      let storedUser = null;
+      if (storedUserRaw) {
+        try {
+          storedUser = JSON.parse(storedUserRaw);
+        } catch (parseError) {
+          storedUser = null;
+        }
+      }
+
+      if (adminToken && (adminEmail || storedUser?.userType === 'admin')) {
+        const resolvedEmail = adminEmail || storedUser?.email || 'admin@localhost';
+        setIsAdminSession(true);
+        setAuthUser({
+          name: storedUser?.name || 'Admin',
+          email: resolvedEmail,
+          userType: 'admin',
+        });
+        return;
+      }
+
+      if (userToken && storedUser) {
+        setIsAdminSession(false);
+        setAuthUser(storedUser);
+        return;
+      }
+
+      setIsAdminSession(false);
+      setAuthUser(null);
+    };
+
+    syncAuthState();
+    setShowUserMenu(false);
+
+    const onStorage = () => syncAuthState();
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [location.pathname]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -26,14 +68,24 @@ function Header() {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('userToken');
-      if (token) {
+      const adminToken = localStorage.getItem('adminToken');
+      const userToken = localStorage.getItem('userToken') || localStorage.getItem('token');
+
+      if (adminToken) {
+        await fetch(`${API_BASE_URL}/admin/logout`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (userToken) {
         await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+            Authorization: `Bearer ${userToken}`,
+            'Content-Type': 'application/json',
+          },
         });
       }
     } catch (err) {
@@ -42,8 +94,12 @@ function Header() {
 
     // Clear storage
     localStorage.removeItem('userToken');
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
-    setUser(null);
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminEmail');
+    setAuthUser(null);
+    setIsAdminSession(false);
     setShowUserMenu(false);
     navigate('/');
   };
@@ -76,21 +132,27 @@ function Header() {
           <Link to="/professionals" className="nav-link">Professionals</Link>
           <Link to="/bookings" className="nav-link">My Bookings</Link>
           
-          {user ? (
+          {authUser ? (
             <div className="user-menu-container">
               <button 
                 className="user-btn"
                 onClick={() => setShowUserMenu(!showUserMenu)}
               >
-                <span className="user-avatar">{user?.name?.charAt(0)?.toUpperCase() || 'U'}</span>
-                <span className="user-name">{user?.name || 'User'}</span>
+                <span className="user-avatar">{authUser?.name?.charAt(0)?.toUpperCase() || 'U'}</span>
+                <span className="user-name">{authUser?.name || 'User'}</span>
               </button>
               
               {showUserMenu && (
                 <div className="user-dropdown">
-                  <Link to="/profile" className="dropdown-item">
-                    My Profile
-                  </Link>
+                  {isAdminSession ? (
+                    <Link to="/admin/dashboard" className="dropdown-item">
+                      Admin Dashboard
+                    </Link>
+                  ) : (
+                    <Link to="/profile" className="dropdown-item">
+                      My Profile
+                    </Link>
+                  )}
                   <button 
                     className="dropdown-item logout-item"
                     onClick={handleLogout}
@@ -101,9 +163,14 @@ function Header() {
               )}
             </div>
           ) : (
-            <Link to="/login" className="nav-link login-link">
-              Login
-            </Link>
+            <div className="auth-links">
+              <Link to="/login" className="nav-link login-link">
+                SignIn
+              </Link>
+              <Link to="/login?mode=signup" className="nav-link signup-link">
+                SignUp
+              </Link>
+            </div>
           )}
         </nav>
       </div>

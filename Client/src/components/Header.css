@@ -113,6 +113,12 @@
   align-items: center;
 }
 
+.auth-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .nav-link {
   text-decoration: none;
   color: var(--text-dark);
@@ -121,6 +127,7 @@
   transition: all 0.3s ease;
   position: relative;
   padding: 8px 0;
+  white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -143,15 +150,17 @@
 }
 
 .login-link {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 700;
+  color: var(--text-dark);
+  font-weight: 600;
 }
 
 .login-link:hover::after {
   width: 100%;
+}
+
+.signup-link {
+  color: var(--text-dark);
+  font-weight: 600;
 }
 
 /* User Menu Styles */
