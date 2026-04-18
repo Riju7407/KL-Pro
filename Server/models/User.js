@@ -37,6 +37,15 @@ const userSchema = new mongoose.Schema(
       enum: ['customer', 'professional', 'admin'],
       default: 'customer',
     },
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'approved',
+    },
+    approvalNote: {
+      type: String,
+      default: '',
+    },
     isVerified: {
       type: Boolean,
       default: false,

@@ -6,7 +6,10 @@ const authMiddleware = require('../middleware/auth');
 // Get all professionals
 router.get('/', async (req, res) => {
   try {
-    const professionals = await Professional.find().populate('userId', 'name email phone rating');
+    const professionals = await Professional.find({
+      $or: [{ approvalStatus: 'approved' }, { approvalStatus: { $exists: false } }],
+      isBlocked: false,
+    }).populate('userId', 'name email phone rating approvalStatus');
     res.json(professionals);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -29,13 +32,46 @@ router.get('/:id', async (req, res) => {
 // Create professional profile
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { specializations, experience, bio, services } = req.body;
+    const {
+      specializations,
+      experience,
+      bio,
+      services,
+      category,
+      subCategory,
+      panCardNumber,
+      aadhaarCardNumber,
+      panCardImageUrl,
+      aadhaarCardImageUrl,
+    } = req.body;
+
+    if (
+      !category ||
+      !subCategory ||
+      !panCardNumber ||
+      !aadhaarCardNumber ||
+      !panCardImageUrl ||
+      !aadhaarCardImageUrl
+    ) {
+      return res.status(400).json({
+        message:
+          'Category, subcategory, PAN, Aadhaar, PAN image and Aadhaar image are required for professionals',
+      });
+    }
+
     const professional = new Professional({
       userId: req.userId,
       specializations,
       experience,
       bio,
       services,
+      category,
+      subCategory,
+      panCardNumber,
+      panCardImageUrl,
+      aadhaarCardNumber,
+      aadhaarCardImageUrl,
+      approvalStatus: 'pending',
     });
     await professional.save();
     res.status(201).json(professional);

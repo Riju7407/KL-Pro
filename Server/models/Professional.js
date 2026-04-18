@@ -12,6 +12,37 @@ const professionalSchema = new mongoose.Schema(
         type: String,
       },
     ],
+    category: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    subCategory: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    panCardNumber: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+    panCardImageUrl: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    aadhaarCardNumber: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    aadhaarCardImageUrl: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     experience: {
       type: Number, // in years
       required: true,
@@ -64,6 +95,25 @@ const professionalSchema = new mongoose.Schema(
     isBlocked: {
       type: Boolean,
       default: false,
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    approvalNote: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    reviewedByAdminEmail: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

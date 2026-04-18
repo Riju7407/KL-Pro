@@ -271,6 +271,35 @@
   font-weight: 800;
 }
 
+.professional-applications-panel {
+  background: #f8f9ff;
+  border: 1px solid #e2e6ff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 26px;
+}
+
+.professional-applications-panel h3 {
+  margin: 0 0 12px;
+  color: #2c3e50;
+  font-size: 1.1em;
+}
+
+.professional-applications-empty {
+  margin: 0;
+  color: #6c757d;
+}
+
+.kyc-doc-link {
+  color: #2d6cdf;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.kyc-doc-link:hover {
+  text-decoration: underline;
+}
+
 .search-input {
   padding: 12px 18px;
   border: 2px solid var(--border-color);

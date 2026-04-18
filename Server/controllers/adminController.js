@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Professional = require('../models/Professional');
 
 // Admin Login
 const adminLogin = (req, res) => {
@@ -221,6 +222,89 @@ const getUserStatistics = async (req, res) => {
   }
 };
 
+// Get professional applications for admin review
+const getProfessionalApplications = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = {};
+
+    if (status && ['pending', 'approved', 'rejected'].includes(status)) {
+      filter.approvalStatus = status;
+    }
+
+    const applications = await Professional.find(filter)
+      .populate('userId', 'name email phone city userType approvalStatus isVerified')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: applications.length,
+      applications,
+    });
+  } catch (error) {
+    console.error('Get professional applications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching professional applications',
+      error: error.message,
+    });
+  }
+};
+
+// Approve or reject professional application
+const reviewProfessionalApplication = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, note } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status must be approved or rejected',
+      });
+    }
+
+    const professional = await Professional.findById(id);
+    if (!professional) {
+      return res.status(404).json({
+        success: false,
+        message: 'Professional application not found',
+      });
+    }
+
+    professional.approvalStatus = status;
+    professional.approvalNote = note || '';
+    professional.reviewedByAdminEmail = req.admin?.email || '';
+    professional.reviewedAt = new Date();
+    await professional.save();
+
+    const userUpdate = {
+      approvalStatus: status,
+      approvalNote: note || '',
+      isVerified: status === 'approved',
+    };
+
+    const user = await User.findByIdAndUpdate(professional.userId, userUpdate, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
+
+    res.status(200).json({
+      success: true,
+      message: `Professional application ${status} successfully`,
+      professional,
+      user,
+    });
+  } catch (error) {
+    console.error('Review professional application error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error reviewing professional application',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   adminLogin,
   adminLogout,
@@ -229,5 +313,7 @@ module.exports = {
   getUserById,
   updateUser,
   deleteUser,
-  getUserStatistics
+  getUserStatistics,
+  getProfessionalApplications,
+  reviewProfessionalApplication,
 };

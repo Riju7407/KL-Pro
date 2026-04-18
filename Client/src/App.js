@@ -22,9 +22,6 @@ function App() {
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
-          {/* Auth Routes */}
-          <Route path="/login" element={<Login />} />
-
           {/* User Routes */}
           <Route
             path="/*"
@@ -34,6 +31,7 @@ function App() {
                 <main className="main-content">
                   <Routes>
                     <Route path="/" element={<Home />} />
+                    <Route path="/login" element={<Login />} />
                     <Route path="/services" element={<Services />} />
                     <Route path="/professionals" element={<Professionals />} />
                     <Route path="/bookings" element={<Bookings />} />

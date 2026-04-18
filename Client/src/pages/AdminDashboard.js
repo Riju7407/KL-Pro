@@ -21,6 +21,8 @@ function AdminDashboard() {
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [serviceImageFile, setServiceImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [professionalApplications, setProfessionalApplications] = useState([]);
+  const [applicationActionLoadingId, setApplicationActionLoadingId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,7 +36,8 @@ function AdminDashboard() {
       fetchAdminProfile(),
       fetchUsers(),
       fetchStatistics(),
-      fetchServices()
+      fetchServices(),
+      fetchProfessionalApplications()
     ]).catch(err => {
       setError(err.message);
       if (err.message.includes('401')) {
@@ -116,6 +119,50 @@ function AdminDashboard() {
 
     const data = await response.json();
     setServices(data.services || []);
+  };
+
+  const fetchProfessionalApplications = async () => {
+    const token = localStorage.getItem('adminToken');
+    const response = await fetch(`${API_BASE_URL}/admin/professionals/applications`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch professional applications');
+    }
+
+    const data = await response.json();
+    setProfessionalApplications(data.applications || []);
+  };
+
+  const handleReviewProfessional = async (applicationId, status) => {
+    try {
+      setApplicationActionLoadingId(applicationId);
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/professionals/${applicationId}/review`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to review professional application');
+      }
+
+      await Promise.all([fetchProfessionalApplications(), fetchUsers(), fetchStatistics()]);
+      alert(`Professional application ${status} successfully`);
+    } catch (err) {
+      setError(err.message || 'Failed to review professional application');
+    } finally {
+      setApplicationActionLoadingId(null);
+    }
   };
 
   const handleDeleteUser = async (userId) => {
@@ -419,6 +466,10 @@ function AdminDashboard() {
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const pendingProfessionalApplications = professionalApplications.filter(
+    (application) => application.approvalStatus === 'pending'
   );
 
   const adminEmail = localStorage.getItem('adminEmail') || 'Administrator';
@@ -746,6 +797,89 @@ function AdminDashboard() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
               />
+            </div>
+
+            <div className="professional-applications-panel">
+              <h3>Professional Registration Requests</h3>
+              {pendingProfessionalApplications.length === 0 ? (
+                <p className="professional-applications-empty">No pending professional registrations.</p>
+              ) : (
+                <div className="users-table-container">
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Category</th>
+                        <th>Subcategory</th>
+                        <th>PAN</th>
+                        <th>PAN Image</th>
+                        <th>Aadhaar</th>
+                        <th>Aadhaar Image</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingProfessionalApplications.map((application) => (
+                        <tr key={application._id}>
+                          <td>{application.userId?.name || 'Unknown'}</td>
+                          <td>{application.userId?.email || 'Unknown'}</td>
+                          <td>{application.category || '-'}</td>
+                          <td>{application.subCategory || '-'}</td>
+                          <td>{application.panCardNumber || '-'}</td>
+                          <td>
+                            {application.panCardImageUrl ? (
+                              <a
+                                href={application.panCardImageUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="kyc-doc-link"
+                              >
+                                View Image
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td>{application.aadhaarCardNumber || '-'}</td>
+                          <td>
+                            {application.aadhaarCardImageUrl ? (
+                              <a
+                                href={application.aadhaarCardImageUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="kyc-doc-link"
+                              >
+                                View Image
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              className="btn-view"
+                              type="button"
+                              disabled={applicationActionLoadingId === application._id}
+                              onClick={() => handleReviewProfessional(application._id, 'approved')}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="btn-delete-small"
+                              type="button"
+                              disabled={applicationActionLoadingId === application._id}
+                              onClick={() => handleReviewProfessional(application._id, 'rejected')}
+                            >
+                              Reject
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {selectedUser ? (

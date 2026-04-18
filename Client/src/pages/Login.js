@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
+import { SERVICE_HIERARCHY } from '../config/serviceHierarchy';
 import './Login.css';
 
 function Login() {
@@ -9,9 +10,18 @@ function Login() {
     name: '',
     email: '',
     password: '',
+    confirmPassword: '',
     phone: '',
     city: '',
-    userType: 'customer'
+    userType: 'customer',
+    professionalCategory: '',
+    professionalSubCategory: '',
+    panCardNumber: '',
+    aadhaarCardNumber: '',
+    panCardImage: null,
+    aadhaarCardImage: null,
+    experience: '',
+    bio: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,9 +29,44 @@ function Login() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === 'userType' && value !== 'professional') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        professionalCategory: '',
+        professionalSubCategory: '',
+        panCardNumber: '',
+        aadhaarCardNumber: '',
+        panCardImage: null,
+        aadhaarCardImage: null,
+        experience: '',
+        bio: ''
+      }));
+      return;
+    }
+
+    if (name === 'professionalCategory') {
+      setFormData(prev => ({
+        ...prev,
+        professionalCategory: value,
+        professionalSubCategory: ''
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }));
+  };
+
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    const selectedFile = files?.[0] || null;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: selectedFile,
     }));
   };
 
@@ -31,18 +76,57 @@ function Login() {
     setLoading(true);
 
     try {
+      if (!isLogin && formData.password !== formData.confirmPassword) {
+        setError('Password and confirm password must match');
+        setLoading(false);
+        return;
+      }
+
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const payload = isLogin 
         ? { email: formData.email, password: formData.password }
-        : formData;
+        : null;
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      let response;
+      if (isLogin) {
+        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        const registerData = new FormData();
+        registerData.append('name', formData.name);
+        registerData.append('email', formData.email);
+        registerData.append('password', formData.password);
+        registerData.append('phone', formData.phone);
+        registerData.append('city', formData.city);
+        registerData.append('userType', formData.userType);
+
+        if (formData.userType === 'professional') {
+          if (!formData.panCardImage || !formData.aadhaarCardImage) {
+            setError('PAN and Aadhaar images are required for professional registration');
+            setLoading(false);
+            return;
+          }
+
+          registerData.append('professionalCategory', formData.professionalCategory);
+          registerData.append('professionalSubCategory', formData.professionalSubCategory);
+          registerData.append('panCardNumber', formData.panCardNumber);
+          registerData.append('aadhaarCardNumber', formData.aadhaarCardNumber);
+          registerData.append('panCardImage', formData.panCardImage);
+          registerData.append('aadhaarCardImage', formData.aadhaarCardImage);
+          registerData.append('experience', formData.experience || '0');
+          registerData.append('bio', formData.bio);
+        }
+
+        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          body: registerData
+        });
+      }
 
       const data = await response.json();
 
@@ -52,17 +136,31 @@ function Login() {
         return;
       }
 
-      // Store token and user info
-      localStorage.setItem('userToken', data.token);
-      localStorage.setItem('user', JSON.stringify({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        userType: data.user.userType
-      }));
+      if (!isLogin && data.requiresApproval) {
+        setError('Registration submitted. Wait for admin approval before login.');
+        setIsLogin(true);
+        setLoading(false);
+        return;
+      }
 
-      // Redirect to home
-      navigate('/');
+      // Store token and user info if login succeeded
+      if (data.token) {
+        localStorage.setItem('userToken', data.token);
+      }
+
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify({
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          userType: data.user.userType,
+          approvalStatus: data.user.approvalStatus
+        }));
+      }
+
+      if (isLogin) {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message || 'Server error. Please try again.');
     } finally {
@@ -77,11 +175,25 @@ function Login() {
       name: '',
       email: '',
       password: '',
+      confirmPassword: '',
       phone: '',
       city: '',
-      userType: 'customer'
+      userType: 'customer',
+      professionalCategory: '',
+      professionalSubCategory: '',
+      panCardNumber: '',
+      aadhaarCardNumber: '',
+      panCardImage: null,
+      aadhaarCardImage: null,
+      experience: '',
+      bio: ''
     });
   };
+
+  const professionalCategories = Object.keys(SERVICE_HIERARCHY);
+  const professionalSubCategories = formData.professionalCategory
+    ? Object.keys(SERVICE_HIERARCHY[formData.professionalCategory] || {})
+    : [];
 
   return (
     <div className="login-container">
@@ -149,6 +261,129 @@ function Login() {
                   <option value="professional">Professional</option>
                 </select>
               </div>
+
+              {formData.userType === 'professional' && (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="professionalCategory">Professional Category</label>
+                    <select
+                      id="professionalCategory"
+                      name="professionalCategory"
+                      value={formData.professionalCategory}
+                      onChange={handleChange}
+                      required
+                      disabled={loading}
+                    >
+                      <option value="">Select category</option>
+                      {professionalCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="professionalSubCategory">Professional Subcategory</label>
+                    <select
+                      id="professionalSubCategory"
+                      name="professionalSubCategory"
+                      value={formData.professionalSubCategory}
+                      onChange={handleChange}
+                      required
+                      disabled={loading || !formData.professionalCategory}
+                    >
+                      <option value="">Select subcategory</option>
+                      {professionalSubCategories.map((subCategory) => (
+                        <option key={subCategory} value={subCategory}>
+                          {subCategory}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="panCardNumber">PAN Card Number</label>
+                    <input
+                      type="text"
+                      id="panCardNumber"
+                      name="panCardNumber"
+                      value={formData.panCardNumber}
+                      onChange={handleChange}
+                      placeholder="ABCDE1234F"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="aadhaarCardNumber">Aadhaar Card Number</label>
+                    <input
+                      type="text"
+                      id="aadhaarCardNumber"
+                      name="aadhaarCardNumber"
+                      value={formData.aadhaarCardNumber}
+                      onChange={handleChange}
+                      placeholder="12-digit Aadhaar number"
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="panCardImage">PAN Card Image</label>
+                    <input
+                      type="file"
+                      id="panCardImage"
+                      name="panCardImage"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="aadhaarCardImage">Aadhaar Card Image</label>
+                    <input
+                      type="file"
+                      id="aadhaarCardImage"
+                      name="aadhaarCardImage"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="experience">Experience (Years)</label>
+                    <input
+                      type="number"
+                      id="experience"
+                      name="experience"
+                      min="0"
+                      value={formData.experience}
+                      onChange={handleChange}
+                      placeholder="e.g. 3"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="bio">Short Bio (Work You Know)</label>
+                    <textarea
+                      id="bio"
+                      name="bio"
+                      value={formData.bio}
+                      onChange={handleChange}
+                      placeholder="Example: Hair cutting, facial, cleanup, bridal makeup"
+                      disabled={loading}
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -179,6 +414,22 @@ function Login() {
               disabled={loading}
             />
           </div>
+
+          {!isLogin && (
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Confirm Password</label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Re-enter your password"
+                required
+                disabled={loading}
+              />
+            </div>
+          )}
 
           <button
             type="submit"

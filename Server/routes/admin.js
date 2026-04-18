@@ -9,7 +9,9 @@ const {
   getUserById,
   updateUser,
   deleteUser,
-  getUserStatistics
+  getUserStatistics,
+  getProfessionalApplications,
+  reviewProfessionalApplication,
 } = require('../controllers/adminController');
 const {
   getAllServices,
@@ -51,6 +53,8 @@ router.get('/profile', verifyAdminToken, getAdminProfile);
 // Important: Specific routes must come before dynamic routes
 router.get('/users/stats', verifyAdminToken, getUserStatistics);
 router.get('/users', verifyAdminToken, getAllUsers);
+router.get('/professionals/applications', verifyAdminToken, getProfessionalApplications);
+router.patch('/professionals/:id/review', verifyAdminToken, reviewProfessionalApplication);
 router.get('/users/:id', verifyAdminToken, getUserById);
 router.put('/users/:id', verifyAdminToken, updateUser);
 router.delete('/users/:id', verifyAdminToken, deleteUser);
