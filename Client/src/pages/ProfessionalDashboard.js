@@ -7,6 +7,16 @@ import './ProfessionalDashboard.css';
 
 const formatCurrency = (amount) => `INR ${Number(amount || 0).toLocaleString('en-IN')}`;
 
+const isSupportedUploadImage = (file) => {
+  if (!file) return false;
+
+  const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (allowedMimeTypes.includes(String(file.type || '').toLowerCase())) return true;
+
+  const lowerName = String(file.name || '').toLowerCase();
+  return ['.jpg', '.jpeg', '.png', '.webp'].some((ext) => lowerName.endsWith(ext));
+};
+
 function ProfessionalDashboard() {
   const navigate = useNavigate();
   const token = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
@@ -276,6 +286,11 @@ function ProfessionalDashboard() {
         return;
       }
 
+      if (!isSupportedUploadImage(photoFile)) {
+        setError('Start photo must be JPG, PNG, or WebP. Please retake photo in these formats.');
+        return;
+      }
+
       setUpdatingId(bookingId);
       setError('');
 
@@ -311,6 +326,11 @@ function ProfessionalDashboard() {
       const photoFile = endPhotoFiles[bookingId];
       if (!photoFile) {
         setError('Please upload completion photo first.');
+        return;
+      }
+
+      if (!isSupportedUploadImage(photoFile)) {
+        setError('Completion photo must be JPG, PNG, or WebP. Please retake photo in these formats.');
         return;
       }
 
@@ -868,7 +888,7 @@ function ProfessionalDashboard() {
                     />
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                       capture="environment"
                       onChange={(event) =>
                         setStartPhotoFiles((prev) => ({
@@ -891,7 +911,7 @@ function ProfessionalDashboard() {
                   <div className="job-actions">
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                       capture="environment"
                       onChange={(event) =>
                         setEndPhotoFiles((prev) => ({

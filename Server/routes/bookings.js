@@ -257,7 +257,9 @@ router.post('/professional/:id/start', authMiddleware, startPhotoUpload, async (
       );
     } catch (uploadError) {
       return res.status(400).json({
-        message: uploadError.message || 'Failed to upload start photo. Please try JPG or PNG image.',
+        message:
+          uploadError?.message ||
+          'Failed to upload start photo. Please use JPG, PNG, or WebP and keep file size under 5MB.',
       });
     }
 
@@ -320,7 +322,9 @@ router.post('/professional/:id/prepare-completion', authMiddleware, completionPh
       );
     } catch (uploadError) {
       return res.status(400).json({
-        message: uploadError.message || 'Failed to upload completion photo. Please try JPG or PNG image.',
+        message:
+          uploadError?.message ||
+          'Failed to upload completion photo. Please use JPG, PNG, or WebP and keep file size under 5MB.',
       });
     }
 
