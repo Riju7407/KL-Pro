@@ -167,9 +167,7 @@ function ProfessionalRequestAlert() {
         if (!mounted) return;
 
         setPendingJobs(pendingBookings);
-        if (pendingBookings.length > 0) {
-          setVisible(true);
-        }
+        setVisible(pendingBookings.length > 0);
       } catch (error) {
         // no-op
       }
@@ -191,8 +189,12 @@ function ProfessionalRequestAlert() {
     socket.on('booking-request-created', handleIncomingRequest);
     socket.on('booking-status-changed', handleStatusUpdate);
 
+    // Poll fallback for environments where websocket events can be delayed or dropped.
+    const pollTimer = setInterval(fetchPendingJobs, 8000);
+
     return () => {
       mounted = false;
+      clearInterval(pollTimer);
       socket.off('booking-request-created', handleIncomingRequest);
       socket.off('booking-status-changed', handleStatusUpdate);
     };
@@ -226,11 +228,14 @@ function ProfessionalRequestAlert() {
         return;
       }
 
-      setPendingJobs((prev) => prev.filter((job) => String(job._id) !== String(bookingId)));
-      if (pendingJobs.length <= 1) {
-        setVisible(false);
-        melodyRef.current?.stop();
-      }
+      setPendingJobs((prev) => {
+        const next = prev.filter((job) => String(job._id) !== String(bookingId));
+        if (next.length === 0) {
+          setVisible(false);
+          melodyRef.current?.stop();
+        }
+        return next;
+      });
     } catch (error) {
       // no-op
     } finally {

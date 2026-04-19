@@ -29,11 +29,11 @@ export const getSocket = (token = '') => {
   }
 
   if (normalizedToken && normalizedToken !== socketToken) {
+    // Reconnect with fresh auth so server binds this socket to the logged-in user.
+    socketInstance.disconnect();
     socketInstance.auth = { token: normalizedToken };
     socketToken = normalizedToken;
-    if (!socketInstance.connected) {
-      socketInstance.connect();
-    }
+    socketInstance.connect();
   }
 
   return socketInstance;
