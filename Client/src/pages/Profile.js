@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
+import { disconnectSocket } from '../api/socket';
 import './Profile.css';
 
 const formatCurrency = (amount) => `INR ${Number(amount || 0).toLocaleString('en-IN')}`;
@@ -223,6 +224,7 @@ function Profile() {
     localStorage.removeItem('userToken');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    disconnectSocket();
     navigate('/');
   };
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY, getHierarchyOptions } from '../config/serviceHierarchy';
+import { disconnectSocket } from '../api/socket';
 import './Login.css';
 
 function Login() {
@@ -204,6 +205,7 @@ function Login() {
 
       // Store token and user info if login succeeded
       if (data.token) {
+        disconnectSocket();
         if (data?.user?.userType === 'admin') {
           localStorage.removeItem('userToken');
           localStorage.removeItem('user');

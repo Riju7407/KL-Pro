@@ -83,6 +83,7 @@ function ProfessionalDashboard() {
 
         if (!profileResponse.ok) {
           if (profileResponse.status === 401) {
+            disconnectSocket();
             localStorage.removeItem('userToken');
             localStorage.removeItem('token');
             localStorage.removeItem('user');

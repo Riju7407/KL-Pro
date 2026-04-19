@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
+import { disconnectSocket } from '../api/socket';
 import './Header.css';
 
 function Header() {
@@ -93,6 +94,7 @@ function Header() {
     }
 
     // Clear storage
+    disconnectSocket();
     localStorage.removeItem('userToken');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
