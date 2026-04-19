@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
-import { SERVICE_HIERARCHY } from '../config/serviceHierarchy';
+import { SERVICE_HIERARCHY, getHierarchyOptions } from '../config/serviceHierarchy';
 import './Login.css';
 
 function Login() {
@@ -19,6 +19,9 @@ function Login() {
     userType: 'customer',
     professionalCategory: '',
     professionalSubCategory: '',
+    professionalSubSubCategory: '',
+    professionalServiceType: '',
+    profileImage: null,
     panCardNumber: '',
     aadhaarCardNumber: '',
     panCardImage: null,
@@ -44,6 +47,9 @@ function Login() {
         [name]: value,
         professionalCategory: '',
         professionalSubCategory: '',
+        professionalSubSubCategory: '',
+        professionalServiceType: '',
+        profileImage: null,
         panCardNumber: '',
         aadhaarCardNumber: '',
         panCardImage: null,
@@ -58,7 +64,28 @@ function Login() {
       setFormData(prev => ({
         ...prev,
         professionalCategory: value,
-        professionalSubCategory: ''
+        professionalSubCategory: '',
+        professionalSubSubCategory: '',
+        professionalServiceType: '',
+      }));
+      return;
+    }
+
+    if (name === 'professionalSubCategory') {
+      setFormData(prev => ({
+        ...prev,
+        professionalSubCategory: value,
+        professionalSubSubCategory: '',
+        professionalServiceType: '',
+      }));
+      return;
+    }
+
+    if (name === 'professionalSubSubCategory') {
+      setFormData(prev => ({
+        ...prev,
+        professionalSubSubCategory: value,
+        professionalServiceType: '',
       }));
       return;
     }
@@ -130,6 +157,11 @@ function Login() {
 
           registerData.append('professionalCategory', formData.professionalCategory);
           registerData.append('professionalSubCategory', formData.professionalSubCategory);
+          registerData.append('professionalSubSubCategory', formData.professionalSubSubCategory);
+          registerData.append('professionalServiceType', formData.professionalServiceType);
+          if (formData.profileImage) {
+            registerData.append('profileImage', formData.profileImage);
+          }
           registerData.append('panCardNumber', formData.panCardNumber);
           registerData.append('aadhaarCardNumber', formData.aadhaarCardNumber);
           registerData.append('panCardImage', formData.panCardImage);
@@ -197,6 +229,8 @@ function Login() {
       if (isLogin) {
         if (data?.user?.userType === 'admin') {
           navigate('/admin/dashboard');
+        } else if (data?.user?.userType === 'professional') {
+          navigate('/professional/dashboard');
         } else {
           navigate('/');
         }
@@ -222,6 +256,9 @@ function Login() {
       userType: 'customer',
       professionalCategory: '',
       professionalSubCategory: '',
+      professionalSubSubCategory: '',
+      professionalServiceType: '',
+      profileImage: null,
       panCardNumber: '',
       aadhaarCardNumber: '',
       panCardImage: null,
@@ -232,9 +269,14 @@ function Login() {
   };
 
   const professionalCategories = Object.keys(SERVICE_HIERARCHY);
-  const professionalSubCategories = formData.professionalCategory
-    ? Object.keys(SERVICE_HIERARCHY[formData.professionalCategory] || {})
-    : [];
+  const hierarchyOptions = getHierarchyOptions(
+    formData.professionalCategory,
+    formData.professionalSubCategory,
+    formData.professionalSubSubCategory
+  );
+  const professionalSubCategories = hierarchyOptions.subCategories;
+  const professionalSubSubCategories = hierarchyOptions.subSubCategories;
+  const professionalServiceTypes = hierarchyOptions.serviceTypes;
 
   return (
     <div className="login-container">
@@ -357,6 +399,56 @@ function Login() {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="professionalSubSubCategory">Sub-Subcategory</label>
+                    <select
+                      id="professionalSubSubCategory"
+                      name="professionalSubSubCategory"
+                      value={formData.professionalSubSubCategory}
+                      onChange={handleChange}
+                      required={professionalSubSubCategories.length > 0}
+                      disabled={loading || !formData.professionalSubCategory}
+                    >
+                      <option value="">Select sub-subcategory</option>
+                      {professionalSubSubCategories.map((subSubCategory) => (
+                        <option key={subSubCategory} value={subSubCategory}>
+                          {subSubCategory}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="professionalServiceType">Next Subcategory</label>
+                    <select
+                      id="professionalServiceType"
+                      name="professionalServiceType"
+                      value={formData.professionalServiceType}
+                      onChange={handleChange}
+                      required={professionalServiceTypes.length > 0}
+                      disabled={loading || !formData.professionalSubSubCategory || !professionalServiceTypes.length}
+                    >
+                      <option value="">Select next subcategory</option>
+                      {professionalServiceTypes.map((serviceType) => (
+                        <option key={serviceType} value={serviceType}>
+                          {serviceType}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="profileImage">Professional Photo</label>
+                    <input
+                      type="file"
+                      id="profileImage"
+                      name="profileImage"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      disabled={loading}
+                    />
                   </div>
 
                   <div className="form-group">

@@ -108,6 +108,11 @@
   animation: bounce 2s ease-in-out infinite, pulse 3s ease-in-out infinite;
 }
 
+.social-link svg {
+  width: 1em;
+  height: 1em;
+}
+
 .social-link:nth-child(1) {
   animation-delay: 0s, 0s;
 }
@@ -154,7 +159,7 @@
 /* Instagram */
 .social-link.instagram {
   background: linear-gradient(135deg, #F58529, #DD2A7B, #8134AF);
-  font-size: 1em;
+  font-size: 1.15em;
 }
 
 .social-link.instagram:hover {

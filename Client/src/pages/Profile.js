@@ -81,6 +81,10 @@ function Profile() {
       }
 
       const data = await profileResponse.json();
+      if (data?.userType === 'professional') {
+        navigate('/professional/dashboard');
+        return;
+      }
       setProfile(data);
       setEditData(data);
 

@@ -4,13 +4,16 @@ import './App.css';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import FloatingToggle from './components/FloatingToggle';
+import ProfessionalRequestAlert from './components/ProfessionalRequestAlert';
 import Home from './pages/Home';
 import Services from './pages/Services';
 import Professionals from './pages/Professionals';
+import ProfessionalDetails from './pages/ProfessionalDetails';
 import Bookings from './pages/Bookings';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
+import ProfessionalDashboard from './pages/ProfessionalDashboard';
 
 function App() {
   return (
@@ -33,12 +36,15 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/services" element={<Services />} />
                     <Route path="/professionals" element={<Professionals />} />
+                    <Route path="/professionals/:id" element={<ProfessionalDetails />} />
                     <Route path="/bookings" element={<Bookings />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/professional/dashboard" element={<ProfessionalDashboard />} />
                   </Routes>
                 </main>
                 <Footer />
                 <FloatingToggle />
+                <ProfessionalRequestAlert />
               </>
             }
           />

@@ -22,6 +22,16 @@ const professionalSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    subSubCategory: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    serviceType: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     panCardNumber: {
       type: String,
       required: true,
@@ -53,6 +63,7 @@ const professionalSchema = new mongoose.Schema(
     services: [
       {
         serviceId: mongoose.Schema.Types.ObjectId,
+        serviceName: String,
         price: Number,
       },
     ],

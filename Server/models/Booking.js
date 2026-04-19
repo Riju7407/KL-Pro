@@ -40,8 +40,40 @@ const bookingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
+      enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled', 'rejected'],
       default: 'pending',
+    },
+    decisionAt: {
+      type: Date,
+      default: null,
+    },
+    startOtp: {
+      type: String,
+      default: '',
+    },
+    startOtpVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    completionOtp: {
+      type: String,
+      default: '',
+    },
+    completionOtpIssuedAt: {
+      type: Date,
+      default: null,
+    },
+    completionOtpVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    workStartPhotoUrl: {
+      type: String,
+      default: '',
+    },
+    workEndPhotoUrl: {
+      type: String,
+      default: '',
     },
     notes: {
       type: String,
@@ -63,6 +95,38 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       enum: ['cash', 'card', 'upi', 'wallet'],
     },
+    auditLogs: [
+      {
+        action: {
+          type: String,
+          required: true,
+        },
+        actorRole: {
+          type: String,
+          enum: ['customer', 'professional', 'admin', 'system'],
+          default: 'system',
+        },
+        actorId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          default: null,
+        },
+        actorLabel: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+        notes: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -33,6 +33,7 @@ router.post(
   upload.fields([
     { name: 'panCardImage', maxCount: 1 },
     { name: 'aadhaarCardImage', maxCount: 1 },
+    { name: 'profileImage', maxCount: 1 },
   ]),
   async (req, res) => {
   try {
@@ -45,6 +46,8 @@ router.post(
       userType,
       professionalCategory,
       professionalSubCategory,
+      professionalSubSubCategory,
+      professionalServiceType,
       panCardNumber,
       aadhaarCardNumber,
       experience,
@@ -84,6 +87,7 @@ router.post(
     if (normalizedUserType === 'professional') {
       const panCardImageFile = req.files?.panCardImage?.[0];
       const aadhaarCardImageFile = req.files?.aadhaarCardImage?.[0];
+      const profileImageFile = req.files?.profileImage?.[0];
 
       if (!professionalCategory || !professionalSubCategory || !panCardNumber || !aadhaarCardNumber) {
         await User.findByIdAndDelete(user._id);
@@ -101,6 +105,7 @@ router.post(
 
       let panCardImageUrl = '';
       let aadhaarCardImageUrl = '';
+      let profileImageUrl = '';
 
       try {
         panCardImageUrl = await uploadImageToCloudinary(
@@ -111,6 +116,13 @@ router.post(
           aadhaarCardImageFile.buffer,
           'kl-services/professionals/aadhaar-cards'
         );
+
+        if (profileImageFile) {
+          profileImageUrl = await uploadImageToCloudinary(
+            profileImageFile.buffer,
+            'kl-services/professionals/profile-images'
+          );
+        }
       } catch (uploadError) {
         await User.findByIdAndDelete(user._id);
         return res.status(400).json({
@@ -119,11 +131,18 @@ router.post(
         });
       }
 
+      if (profileImageUrl) {
+        user.profileImage = profileImageUrl;
+        await user.save();
+      }
+
       const professional = new Professional({
         userId: user._id,
-        specializations: [professionalSubCategory],
+        specializations: [professionalSubCategory, professionalSubSubCategory, professionalServiceType].filter(Boolean),
         category: professionalCategory,
         subCategory: professionalSubCategory,
+        subSubCategory: professionalSubSubCategory || '',
+        serviceType: professionalServiceType || '',
         panCardNumber: String(panCardNumber).trim().toUpperCase(),
         panCardImageUrl,
         aadhaarCardNumber: String(aadhaarCardNumber).trim(),

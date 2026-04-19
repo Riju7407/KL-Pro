@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
+import { getSocket } from '../api/socket';
 import './Bookings.css';
 
 const isObjectId = (value) => /^[a-fA-F0-9]{24}$/.test(String(value || ''));
@@ -180,7 +181,7 @@ function Bookings() {
     }));
   }, [selectedService]);
 
-  const refreshBookings = async () => {
+  const refreshBookings = useCallback(async () => {
     if (!token) return;
 
     try {
@@ -197,7 +198,23 @@ function Bookings() {
     } catch (refreshError) {
       console.error('Failed to refresh bookings:', refreshError);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+
+    const socket = getSocket(token);
+
+    const handleStatusChanged = async () => {
+      await refreshBookings();
+    };
+
+    socket.on('booking-status-changed', handleStatusChanged);
+
+    return () => {
+      socket.off('booking-status-changed', handleStatusChanged);
+    };
+  }, [token, refreshBookings]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -277,8 +294,14 @@ function Bookings() {
         throw new Error(errorPayload?.message || 'Failed to create booking');
       }
 
+      const createdBooking = await response.json();
+
       localStorage.removeItem('bookingDraft');
-      setSuccessMessage('Booking confirmed successfully. You can track it below.');
+      setSuccessMessage(
+        createdBooking?.startOtp
+          ? `Booking request sent. Share start OTP with professional at service start: ${createdBooking.startOtp}`
+          : 'Booking request sent successfully. You can track it below.'
+      );
       setPrefillNotice('');
 
       setFormData((current) => ({
@@ -523,6 +546,8 @@ function Bookings() {
                     {booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString() : '-'} at {booking.scheduledTime || '-'}
                   </p>
                   <p><strong>Amount:</strong> INR {booking.price}</p>
+                  {booking.startOtp && <p><strong>Start OTP:</strong> {booking.startOtp}</p>}
+                  {booking.completionOtpIssuedAt && <p><strong>Final OTP:</strong> {booking.completionOtp}</p>}
                 </div>
                 <div className="booking-status">
                   <span className={`status-badge ${booking.status}`}>
@@ -541,6 +566,11 @@ function Bookings() {
                       {booking.status === 'cancelled' ? 'Cancelled' : 'Cancel'}
                     </button>
                   </div>
+                  {booking.status === 'in-progress' && booking.completionOtpIssuedAt && (
+                    <p style={{ marginTop: 8 }}>
+                      <strong>Action:</strong> Share final OTP with the professional. Professional will verify and complete the booking.
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

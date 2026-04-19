@@ -1,8 +1,43 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { professionalService, serviceService } from '../api/services';
+import { getSocket } from '../api/socket';
 import API_BASE_URL from '../config/apiConfig';
 import './Professionals.css';
+
+const THUMBNAIL_PALETTES = [
+  ['#1f7aa8', '#49b7cb'],
+  ['#8356c8', '#b58bf2'],
+  ['#0e8f68', '#67cd9f'],
+  ['#b25522', '#f29f66'],
+  ['#2b5fb8', '#7aa7f4'],
+];
+
+const getInitials = (name) =>
+  String(name || 'Pro')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'PR';
+
+const getSpecializationMark = (specialization) => {
+  const normalized = String(specialization || '').toLowerCase();
+  if (normalized.includes('hair')) return 'HS';
+  if (normalized.includes('beauty')) return 'BT';
+  if (normalized.includes('spa')) return 'SP';
+  if (normalized.includes('makeup')) return 'MU';
+  if (normalized.includes('massage')) return 'MG';
+  return 'PRO';
+};
+
+const createProfessionalThumbnail = (name, specialization, index = 0) => {
+  const [startColor, endColor] = THUMBNAIL_PALETTES[index % THUMBNAIL_PALETTES.length];
+  const initials = getInitials(name);
+  const mark = getSpecializationMark(specialization);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${startColor}"/><stop offset="100%" stop-color="${endColor}"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><circle cx="120" cy="280" r="120" fill="rgba(255,255,255,0.14)"/><circle cx="540" cy="40" r="100" fill="rgba(255,255,255,0.12)"/><text x="40" y="58" fill="rgba(255,255,255,0.9)" font-size="28" font-family="Arial, sans-serif" font-weight="700">${mark}</text><text x="40" y="322" fill="#ffffff" font-size="78" font-family="Arial, sans-serif" font-weight="700">${initials}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
 
 const FALLBACK_PROFESSIONALS = [
   {
@@ -82,75 +117,19 @@ const priceRanges = {
   premium: [1201, Number.POSITIVE_INFINITY],
 };
 
-const SAVED_PRO_IDS_KEY = 'savedProfessionalIds';
-const SAVED_PRO_DETAILS_KEY = 'savedProfessionals';
-
-const SLOT_WINDOW_START = 9 * 60;
-const SLOT_WINDOW_END = 21 * 60;
-const SLOT_INTERVAL_MINUTES = 30;
-
-const formatDateInput = (dateObj) => {
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const toTitleCase = (value) =>
-  value
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-const makeTimeLabel = (minutes) => {
-  const hours24 = Math.floor(minutes / 60);
-  const minutesPart = String(minutes % 60).padStart(2, '0');
-  const period = hours24 >= 12 ? 'PM' : 'AM';
-  const hours12 = ((hours24 + 11) % 12) + 1;
-  return `${hours12}:${minutesPart} ${period}`;
-};
-
-const makeDeterministicSeed = (value) => {
-  const input = String(value || 'seed');
-  let hash = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-};
-
 const getProfessionalId = (bookingProfessional) => {
   if (!bookingProfessional) return null;
   if (typeof bookingProfessional === 'string') return bookingProfessional;
   return bookingProfessional?._id || null;
 };
 
-const buildLiveSlots = ({ professionalId, selectedDate, nowMs }) => {
-  const slots = [];
-  const todayString = formatDateInput(new Date(nowMs));
-  const nowMinutes = new Date(nowMs).getHours() * 60 + new Date(nowMs).getMinutes();
-  const seedRoot = makeDeterministicSeed(`${professionalId}-${selectedDate}`);
-  const isToday = selectedDate === todayString;
-
-  for (let minutes = SLOT_WINDOW_START; minutes <= SLOT_WINDOW_END; minutes += SLOT_INTERVAL_MINUTES) {
-    const label = makeTimeLabel(minutes);
-    const seed = makeDeterministicSeed(`${seedRoot}-${minutes}`);
-    const dynamicDemand = seed % 5;
-    const seatsLeft = Math.max(0, 4 - dynamicDemand);
-    const unavailableBecausePast = isToday && minutes <= nowMinutes + 30;
-    const isAvailable = seatsLeft > 0 && !unavailableBecausePast;
-
-    slots.push({
-      label,
-      seatsLeft,
-      isAvailable,
-      reason: unavailableBecausePast ? 'Elapsed' : seatsLeft === 0 ? 'Booked out' : 'Available',
-    });
-  }
-
-  return slots;
+const formatRatingSummary = (ratingValue, reviewsCount) => {
+  const safeRating = Number(ratingValue) || 0;
+  const safeReviews = Number(reviewsCount) || 0;
+  const reviewLabel = safeReviews === 1 ? 'review' : 'reviews';
+  return `${safeRating.toFixed(1)} (${safeReviews.toLocaleString()} ${reviewLabel})`;
 };
+
 
 const getKeywordTokens = (bookings) => {
   const stopWords = new Set(['and', 'for', 'with', 'the', 'to', 'at', 'home', 'service']);
@@ -210,26 +189,33 @@ const normalizeProfessional = (professional, servicePriceMap, index) => {
 
   return {
     id: professional?._id || `fallback-${index}`,
+    userId: professional?.userId?._id || '',
     name,
     specialization: skills[0],
     skills,
     rating,
     reviews: reviewsCount,
     availabilityText: buildAvailabilityText(professional?.availability),
-    location: 'Lucknow',
+    location: professional?.userId?.city || 'Lucknow',
     experienceYears,
     completedBookings: professional?.completedBookings || reviewsCount * 2,
     startingPrice: servicePrices.length ? Math.min(...servicePrices) : 499,
     responseTime: `Responds in ${10 + (index % 3) * 5} mins`,
     badge: rating >= 4.8 ? 'Top Rated' : experienceYears >= 6 ? 'Senior Pro' : 'Verified',
     bio: professional?.bio || 'Trusted professional delivering premium at-home service quality.',
+    isOnline: Boolean(professional?.isOnline),
     serviceTags,
+    thumbnail:
+      professional?.userId?.profileImage ||
+      createProfessionalThumbnail(name, skills[0], index),
   };
 };
 
 function Professionals() {
   const navigate = useNavigate();
   const [professionals, setProfessionals] = useState(FALLBACK_PROFESSIONALS);
+  const [detectedCity, setDetectedCity] = useState('');
+  const [locating, setLocating] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -237,75 +223,146 @@ function Professionals() {
   const [sortBy, setSortBy] = useState('recommended');
   const [selectedPriceRange, setSelectedPriceRange] = useState('all');
   const [minRating, setMinRating] = useState('all');
-  const [savedIds, setSavedIds] = useState(() => {
-    try {
-      const storedIds = JSON.parse(localStorage.getItem(SAVED_PRO_IDS_KEY) || '[]');
-      return Array.isArray(storedIds) ? storedIds : [];
-    } catch (parseError) {
-      return [];
-    }
-  });
-  const [activeProfessional, setActiveProfessional] = useState(null);
   const [bookingHistory, setBookingHistory] = useState([]);
-  const [compareIds, setCompareIds] = useState([]);
-  const [isCompareOpen, setIsCompareOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(formatDateInput(new Date()));
-  const [selectedSlot, setSelectedSlot] = useState('');
-  const [slotNotice, setSlotNotice] = useState('');
-  const [liveNow, setLiveNow] = useState(Date.now());
+  const [onlineMap, setOnlineMap] = useState({});
+
+  const loadProfessionals = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const [professionalsResponse, servicesResponse] = await Promise.all([
+        professionalService.getAll(),
+        serviceService.getAll(),
+      ]);
+
+      const apiProfessionals = Array.isArray(professionalsResponse?.data)
+        ? professionalsResponse.data
+        : Array.isArray(professionalsResponse?.data?.professionals)
+          ? professionalsResponse.data.professionals
+          : [];
+
+      const apiServices = Array.isArray(servicesResponse?.data)
+        ? servicesResponse.data
+        : Array.isArray(servicesResponse?.data?.services)
+          ? servicesResponse.data.services
+          : [];
+
+      const servicePriceMap = new Map(
+        apiServices.map((service) => [String(service?._id), Number(service?.basePrice) || 0])
+      );
+
+      if (!apiProfessionals.length) {
+        setProfessionals(FALLBACK_PROFESSIONALS);
+        return;
+      }
+
+      setProfessionals(apiProfessionals.map((item, index) => normalizeProfessional(item, servicePriceMap, index)));
+    } catch (fetchError) {
+      console.error('Failed to fetch professionals:', fetchError);
+      setError('Showing curated experts while we reconnect to live inventory.');
+      setProfessionals(FALLBACK_PROFESSIONALS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchProfessionals = async () => {
-      try {
-        setLoading(true);
-        setError('');
-
-        const [professionalsResponse, servicesResponse] = await Promise.all([
-          professionalService.getAll(),
-          serviceService.getAll(),
-        ]);
-
-        const apiProfessionals = Array.isArray(professionalsResponse?.data)
-          ? professionalsResponse.data
-          : Array.isArray(professionalsResponse?.data?.professionals)
-            ? professionalsResponse.data.professionals
-            : [];
-
-        const apiServices = Array.isArray(servicesResponse?.data)
-          ? servicesResponse.data
-          : Array.isArray(servicesResponse?.data?.services)
-            ? servicesResponse.data.services
-            : [];
-
-        const servicePriceMap = new Map(
-          apiServices.map((service) => [String(service?._id), Number(service?.basePrice) || 0])
-        );
-
-        if (!apiProfessionals.length) {
-          setProfessionals(FALLBACK_PROFESSIONALS);
-          return;
-        }
-
-        setProfessionals(apiProfessionals.map((item, index) => normalizeProfessional(item, servicePriceMap, index)));
-      } catch (fetchError) {
-        console.error('Failed to fetch professionals:', fetchError);
-        setError('Showing curated experts while we reconnect to live inventory.');
-        setProfessionals(FALLBACK_PROFESSIONALS);
-      } finally {
-        setLoading(false);
+    const detectCity = async () => {
+      if (!navigator.geolocation) {
+        setError('Location is required to show nearby professionals.');
+        setLocating(false);
+        return;
       }
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+              {
+                headers: {
+                  Accept: 'application/json',
+                },
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error('Failed to detect your location');
+            }
+
+            const data = await response.json();
+            const cityFromGeo =
+              data?.address?.city ||
+              data?.address?.town ||
+              data?.address?.village ||
+              data?.address?.county ||
+              '';
+
+            if (!cityFromGeo) {
+              setError('Could not detect city from current location.');
+            }
+
+            setDetectedCity(cityFromGeo);
+          } catch (locationError) {
+            setError(locationError.message || 'Unable to detect location');
+          } finally {
+            setLocating(false);
+          }
+        },
+        () => {
+          setError('Please allow location permission to view nearby professionals.');
+          setLocating(false);
+        }
+      );
     };
 
-    fetchProfessionals();
+    detectCity();
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setLiveNow(Date.now());
-    }, 30000);
+    loadProfessionals();
+  }, [loadProfessionals]);
 
-    return () => clearInterval(timer);
-  }, []);
+  useEffect(() => {
+    const token = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
+    const socket = getSocket(token);
+
+    const handlePresence = ({ userId, isOnline }) => {
+      if (!userId) return;
+      setOnlineMap((prev) => ({
+        ...prev,
+        [String(userId)]: Boolean(isOnline),
+      }));
+    };
+
+    const handleAvailabilityRefresh = () => {
+      loadProfessionals();
+    };
+
+    socket.on('professional-presence-changed', handlePresence);
+    socket.on('professionals-availability-updated', handleAvailabilityRefresh);
+
+    return () => {
+      socket.off('professional-presence-changed', handlePresence);
+      socket.off('professionals-availability-updated', handleAvailabilityRefresh);
+    };
+  }, [loadProfessionals]);
+
+  useEffect(() => {
+    if (!professionals.length) return;
+
+    setProfessionals((prev) =>
+      prev.map((professional) => ({
+        ...professional,
+        isOnline:
+          onlineMap[String(professional.userId)] ??
+          onlineMap[String(professional.id)] ??
+          professional.isOnline,
+      }))
+    );
+  }, [onlineMap, professionals.length]);
 
   useEffect(() => {
     const fetchBookingHistory = async () => {
@@ -339,13 +396,6 @@ function Professionals() {
 
     fetchBookingHistory();
   }, []);
-
-  useEffect(() => {
-    if (!activeProfessional) return;
-    setSelectedDate(formatDateInput(new Date()));
-    setSelectedSlot('');
-    setSlotNotice('');
-  }, [activeProfessional]);
 
   const specializationOptions = useMemo(() => {
     const allSpecializations = professionals
@@ -412,8 +462,13 @@ function Professionals() {
 
       const priceMatch = professional.startingPrice >= minPrice && professional.startingPrice <= maxPrice;
       const ratingMatch = professional.rating >= normalizedRating;
+      const locationMatch =
+        detectedCity &&
+        (professional.location.toLowerCase().includes(detectedCity.toLowerCase()) ||
+          detectedCity.toLowerCase().includes(professional.location.toLowerCase()));
+      const onlineMatch = professional.isOnline;
 
-      return textMatch && specializationMatch && priceMatch && ratingMatch;
+      return textMatch && specializationMatch && priceMatch && ratingMatch && locationMatch && onlineMatch;
     });
 
     const withPersonalization = filtered.map((professional) => {
@@ -440,7 +495,7 @@ function Professionals() {
       const bScore = b.recommendationScore + b.rating * 20 + b.completedBookings * 0.03 + (5 - b.startingPrice / 1000);
       return bScore - aScore;
     });
-  }, [professionals, searchTerm, selectedSpecialization, selectedPriceRange, minRating, sortBy, personalizationContext]);
+  }, [professionals, searchTerm, selectedSpecialization, selectedPriceRange, minRating, sortBy, personalizationContext, detectedCity]);
 
   const recommendedProfessionals = useMemo(() => {
     if (!bookingHistory.length) return [];
@@ -449,85 +504,10 @@ function Professionals() {
       .slice(0, 3);
   }, [bookingHistory.length, filteredProfessionals]);
 
-  const recommendedIdSet = useMemo(
-    () => new Set(recommendedProfessionals.map((professional) => professional.id)),
-    [recommendedProfessionals]
-  );
-
-  const comparedProfessionals = useMemo(() => {
-    const source = new Map(professionals.map((professional) => [String(professional.id), professional]));
-    return compareIds.map((id) => source.get(String(id))).filter(Boolean);
-  }, [compareIds, professionals]);
-
-  const liveSlots = useMemo(() => {
-    if (!activeProfessional) return [];
-    return buildLiveSlots({
-      professionalId: activeProfessional.id,
-      selectedDate,
-      nowMs: liveNow,
+  const handleCardClick = (professional) => {
+    navigate(`/professionals/${professional.id}`, {
+      state: { professional },
     });
-  }, [activeProfessional, selectedDate, liveNow]);
-
-  useEffect(() => {
-    localStorage.setItem(SAVED_PRO_IDS_KEY, JSON.stringify(savedIds));
-
-    const source = new Map(professionals.map((professional) => [String(professional.id), professional]));
-    const savedDetails = savedIds
-      .map((id) => source.get(String(id)))
-      .filter(Boolean)
-      .map((professional) => ({
-        id: professional.id,
-        name: professional.name,
-        specialization: professional.specialization,
-        rating: professional.rating,
-        reviews: professional.reviews,
-        location: professional.location,
-        experienceYears: professional.experienceYears,
-        startingPrice: professional.startingPrice,
-        availabilityText: professional.availabilityText,
-        responseTime: professional.responseTime,
-        badge: professional.badge,
-      }));
-
-    localStorage.setItem(SAVED_PRO_DETAILS_KEY, JSON.stringify(savedDetails));
-  }, [savedIds, professionals]);
-
-  const toggleSaved = (id) => {
-    setSavedIds((currentSaved) =>
-      currentSaved.includes(id)
-        ? currentSaved.filter((savedId) => savedId !== id)
-        : [...currentSaved, id]
-    );
-  };
-
-  const toggleCompare = (id) => {
-    setCompareIds((current) => {
-      if (current.includes(id)) {
-        return current.filter((compareId) => compareId !== id);
-      }
-      if (current.length >= 3) {
-        return [...current.slice(1), id];
-      }
-      return [...current, id];
-    });
-  };
-
-  const handleContinueBooking = (professional) => {
-    if (!selectedSlot) {
-      setSlotNotice('Choose an available slot before continuing.');
-      return;
-    }
-
-    const bookingDraft = {
-      professionalId: professional.id,
-      professionalName: professional.name,
-      scheduledDate: selectedDate,
-      scheduledTime: selectedSlot,
-      expectedPrice: professional.startingPrice,
-    };
-
-    localStorage.setItem('bookingDraft', JSON.stringify(bookingDraft));
-    navigate('/bookings');
   };
 
   return (
@@ -621,7 +601,7 @@ function Professionals() {
                 key={`rec-${professional.id}`}
                 type="button"
                 className="recommendation-card"
-                onClick={() => setActiveProfessional(professional)}
+                onClick={() => handleCardClick(professional)}
               >
                 <div>
                   <strong>{professional.name}</strong>
@@ -635,86 +615,70 @@ function Professionals() {
       )}
 
       {error && <p className="professionals-message warning">{error}</p>}
+      {locating && <p className="professionals-message">Detecting your current location...</p>}
+      {!locating && detectedCity && (
+        <p className="professionals-message">Showing professionals near {detectedCity}</p>
+      )}
       {loading && <p className="professionals-message">Loading professionals...</p>}
 
       {!loading && (
         <section className="professionals-grid">
           {filteredProfessionals.length ? (
-            filteredProfessionals.map((professional) => {
-              const isSaved = savedIds.includes(professional.id);
-              const isCompared = compareIds.includes(professional.id);
-              const isRecommended = recommendedIdSet.has(professional.id);
+            filteredProfessionals.map((professional, index) => {
+              const weeklyBookings = Math.max(4, Math.round(professional.completedBookings / 40));
+              const trustScore = Math.min(99, Math.round((professional.rating / 5) * 100));
               return (
-                <article key={professional.id} className="professional-card">
-                  <div className="professional-card-top">
-                    <div className="card-chip-group">
-                      <span className="status-chip">{professional.badge}</span>
-                      {isRecommended && <span className="recommend-chip">Recommended for you</span>}
-                    </div>
-                    <div className="top-actions">
-                      <button
-                        type="button"
-                        className={`compare-toggle ${isCompared ? 'selected' : ''}`}
-                        onClick={() => toggleCompare(professional.id)}
-                      >
-                        {isCompared ? 'Comparing' : 'Compare'}
-                      </button>
-                      <button
-                        type="button"
-                        className={`wishlist-btn ${isSaved ? 'saved' : ''}`}
-                        onClick={() => toggleSaved(professional.id)}
-                        aria-label={isSaved ? 'Remove from saved professionals' : 'Save professional'}
-                      >
-                        {isSaved ? '♥' : '♡'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="professional-header">
-                    <div className="prof-avatar">{professional.name.charAt(0)}</div>
-                    <div>
-                      <h3>{professional.name}</h3>
-                      <p>{professional.specialization}</p>
+                <article
+                  key={professional.id}
+                  className="professional-card"
+                  style={{ '--card-stagger': `${Math.min(index, 9) * 70}ms` }}
+                  onClick={() => handleCardClick(professional)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleCardClick(professional);
+                    }
+                  }}
+                >
+                  <div className="market-media">
+                    <img
+                      src={professional.thumbnail || createProfessionalThumbnail(professional.name, professional.specialization, index)}
+                      alt={`${professional.name} preview`}
+                      className="market-image"
+                    />
+                    <div className="market-shade" />
+                    <div className="market-meta-bar">
+                        <span>UC Assured · ProRank {trustScore}</span>
+                          <span>{weeklyBookings}+ bookings this month</span>
                     </div>
                   </div>
 
-                  <div className="professional-meta">
-                    <span>⭐ {professional.rating.toFixed(1)} ({professional.reviews})</span>
-                    <span>{professional.experienceYears}+ years</span>
-                    <span>{professional.location}</span>
-                  </div>
-
-                  <p className="professional-bio">{professional.bio}</p>
-
-                  <div className="skills-row">
-                    {professional.skills.slice(0, 3).map((skill) => (
-                      <span key={`${professional.id}-${skill}`}>{skill}</span>
-                    ))}
-                  </div>
-
-                  <div className="card-details-row">
-                    <div>
-                      <small>Starting from</small>
-                      <strong>INR {professional.startingPrice}</strong>
+                  <div className="market-content">
+                    <div className="market-top-row">
+                      <div>
+                        <h3>{professional.name}</h3>
+                        <p>{professional.specialization}</p>
+                      </div>
+                      <span className="online-badge">Online</span>
                     </div>
-                    <div>
-                      <small>Availability</small>
-                      <strong>{professional.availabilityText}</strong>
+
+                    <div className="professional-meta">
+                      <span>Experience: {professional.experienceYears}+ years</span>
+                      <span>Rating: {formatRatingSummary(professional.rating, professional.reviews)}</span>
+                      <span>Price: INR {professional.startingPrice}</span>
                     </div>
-                  </div>
 
-                  <p className="response-time">{professional.responseTime}</p>
-
-                  <div className="card-actions">
-                    <button type="button" className="ghost" onClick={() => setActiveProfessional(professional)}>
-                      Quick View
-                    </button>
                     <button
                       type="button"
-                      className="primary"
-                      onClick={() => navigate('/bookings')}
+                      className="card-bottom-cta"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleCardClick(professional);
+                      }}
                     >
-                      Book Now
+                      View Details
                     </button>
                   </div>
                 </article>
@@ -729,186 +693,6 @@ function Professionals() {
         </section>
       )}
 
-      {activeProfessional && (
-        <div className="quick-view-overlay" role="dialog" aria-modal="true">
-          <div className="quick-view-modal">
-            <button type="button" className="close-btn" onClick={() => setActiveProfessional(null)}>
-              ×
-            </button>
-            <div className="quick-view-head">
-              <div className="prof-avatar large">{activeProfessional.name.charAt(0)}</div>
-              <div>
-                <h2>{activeProfessional.name}</h2>
-                <p>{activeProfessional.specialization}</p>
-                <span>⭐ {activeProfessional.rating.toFixed(1)} ({activeProfessional.reviews} reviews)</span>
-              </div>
-            </div>
-
-            <p className="quick-view-bio">{activeProfessional.bio}</p>
-
-            <div className="quick-view-grid">
-              <div>
-                <small>Experience</small>
-                <strong>{activeProfessional.experienceYears}+ years</strong>
-              </div>
-              <div>
-                <small>Completed Jobs</small>
-                <strong>{activeProfessional.completedBookings}+</strong>
-              </div>
-              <div>
-                <small>Location</small>
-                <strong>{activeProfessional.location}</strong>
-              </div>
-              <div>
-                <small>Starting Price</small>
-                <strong>INR {activeProfessional.startingPrice}</strong>
-              </div>
-            </div>
-
-            <div className="skills-row">
-              {activeProfessional.skills.map((skill) => (
-                <span key={`${activeProfessional.id}-modal-${skill}`}>{skill}</span>
-              ))}
-            </div>
-
-            <div className="slot-picker">
-              <div className="slot-picker-head">
-                <h3>Select a slot</h3>
-                <small>Live updated at {new Date(liveNow).toLocaleTimeString()}</small>
-              </div>
-              <div className="slot-date-row">
-                <label htmlFor="appointmentDate">Date</label>
-                <input
-                  id="appointmentDate"
-                  type="date"
-                  min={formatDateInput(new Date())}
-                  value={selectedDate}
-                  onChange={(event) => {
-                    setSelectedDate(event.target.value);
-                    setSelectedSlot('');
-                    setSlotNotice('');
-                  }}
-                />
-              </div>
-
-              <div className="slot-grid">
-                {liveSlots.map((slot) => (
-                  <button
-                    key={`${activeProfessional.id}-${selectedDate}-${slot.label}`}
-                    type="button"
-                    disabled={!slot.isAvailable}
-                    className={`slot-item ${selectedSlot === slot.label ? 'selected' : ''}`}
-                    onClick={() => {
-                      setSelectedSlot(slot.label);
-                      setSlotNotice('');
-                    }}
-                  >
-                    <span>{slot.label}</span>
-                    <small>{slot.isAvailable ? `${slot.seatsLeft} left` : slot.reason}</small>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {slotNotice && <p className="slot-notice">{slotNotice}</p>}
-
-            <div className="card-actions modal-actions">
-              <button type="button" className="ghost" onClick={() => toggleSaved(activeProfessional.id)}>
-                {savedIds.includes(activeProfessional.id) ? 'Saved' : 'Save for Later'}
-              </button>
-              <button type="button" className="primary" onClick={() => handleContinueBooking(activeProfessional)}>
-                Continue to Booking
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!!compareIds.length && (
-        <div className="compare-dock">
-          <div className="compare-dock-info">
-            <strong>{compareIds.length} selected for compare</strong>
-            <p>{compareIds.length < 2 ? 'Select at least 2 professionals for side-by-side view' : 'Ready for side-by-side comparison'}</p>
-          </div>
-          <div className="compare-dock-actions">
-            <button type="button" onClick={() => setCompareIds([])} className="ghost">
-              Clear
-            </button>
-            <button
-              type="button"
-              className="primary"
-              disabled={compareIds.length < 2}
-              onClick={() => setIsCompareOpen(true)}
-            >
-              Compare Now
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isCompareOpen && (
-        <div className="quick-view-overlay" role="dialog" aria-modal="true">
-          <div className="compare-modal">
-            <div className="compare-modal-head">
-              <h2>Side-by-side compare</h2>
-              <button type="button" className="close-btn" onClick={() => setIsCompareOpen(false)}>
-                ×
-              </button>
-            </div>
-            <div className="compare-grid">
-              {comparedProfessionals.map((professional) => (
-                <article key={`compare-${professional.id}`} className="compare-column">
-                  <div className="professional-header">
-                    <div className="prof-avatar">{professional.name.charAt(0)}</div>
-                    <div>
-                      <h3>{professional.name}</h3>
-                      <p>{professional.specialization}</p>
-                    </div>
-                  </div>
-
-                  <div className="compare-row">
-                    <span>Rating</span>
-                    <strong>⭐ {professional.rating.toFixed(1)}</strong>
-                  </div>
-                  <div className="compare-row">
-                    <span>Experience</span>
-                    <strong>{professional.experienceYears}+ years</strong>
-                  </div>
-                  <div className="compare-row">
-                    <span>Starting Price</span>
-                    <strong>INR {professional.startingPrice}</strong>
-                  </div>
-                  <div className="compare-row">
-                    <span>Completed Jobs</span>
-                    <strong>{professional.completedBookings}+</strong>
-                  </div>
-                  <div className="compare-row">
-                    <span>Response Time</span>
-                    <strong>{professional.responseTime.replace('Responds in ', '')}</strong>
-                  </div>
-
-                  <div className="skills-row compare-skills">
-                    {professional.skills.slice(0, 4).map((skill) => (
-                      <span key={`${professional.id}-compare-${skill}`}>{toTitleCase(skill)}</span>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="primary compare-book-btn"
-                    onClick={() => {
-                      setIsCompareOpen(false);
-                      setActiveProfessional(professional);
-                    }}
-                  >
-                    Select This Pro
-                  </button>
-                </article>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

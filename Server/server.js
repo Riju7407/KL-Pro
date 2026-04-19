@@ -1,9 +1,13 @@
 const express = require('express');
+const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const { Server } = require('socket.io');
 require('dotenv').config();
+const { initPresenceSocket } = require('./realtime/presence');
 
 const app = express();
+const server = http.createServer(app);
 
 // Middleware
 // CORS Configuration - Allow requests from frontend
@@ -29,6 +33,15 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+});
+
+initPresenceSocket(io);
 
 // Custom middleware to handle both JSON and FormData
 app.use((req, res, next) => {
@@ -95,7 +108,7 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 

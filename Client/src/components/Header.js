@@ -130,7 +130,12 @@ function Header() {
           <Link to="/" className="nav-link">Home</Link>
           <Link to="/services" className="nav-link">Services</Link>
           <Link to="/professionals" className="nav-link">Professionals</Link>
-          <Link to="/bookings" className="nav-link">My Bookings</Link>
+          <Link
+            to={authUser?.userType === 'professional' ? '/professional/dashboard' : '/bookings'}
+            className="nav-link"
+          >
+            {authUser?.userType === 'professional' ? 'My Dashboard' : 'My Bookings'}
+          </Link>
           
           {authUser ? (
             <div className="user-menu-container">
@@ -147,6 +152,10 @@ function Header() {
                   {isAdminSession ? (
                     <Link to="/admin/dashboard" className="dropdown-item">
                       Admin Dashboard
+                    </Link>
+                  ) : authUser?.userType === 'professional' ? (
+                    <Link to="/professional/dashboard" className="dropdown-item">
+                      Professional Dashboard
                     </Link>
                   ) : (
                     <Link to="/profile" className="dropdown-item">

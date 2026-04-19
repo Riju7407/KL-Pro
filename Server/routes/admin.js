@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const upload = require('../middleware/upload');
+const Booking = require('../models/Booking');
 const {
   adminLogin,
   adminLogout,
@@ -69,5 +70,43 @@ router.put('/services/:id', verifyAdminToken, upload.single('image'), updateServ
 router.get('/services/:id', verifyAdminToken, getServiceById);
 router.post('/services', verifyAdminToken, upload.single('image'), createService);
 router.get('/services', verifyAdminToken, getAllServices);
+
+// Booking workflow visibility for admin
+router.get('/bookings', verifyAdminToken, async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate('customerId', 'name email phone city')
+      .populate({
+        path: 'professionalId',
+        populate: { path: 'userId', select: 'name email phone city' },
+      })
+      .populate('serviceId', 'name category subCategory')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, bookings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/bookings/:id', verifyAdminToken, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .populate('customerId', 'name email phone city')
+      .populate({
+        path: 'professionalId',
+        populate: { path: 'userId', select: 'name email phone city' },
+      })
+      .populate('serviceId', 'name category subCategory');
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    res.json({ success: true, booking });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 module.exports = router;

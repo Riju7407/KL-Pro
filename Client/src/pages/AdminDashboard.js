@@ -23,6 +23,8 @@ function AdminDashboard() {
   const [imagePreview, setImagePreview] = useState(null);
   const [professionalApplications, setProfessionalApplications] = useState([]);
   const [applicationActionLoadingId, setApplicationActionLoadingId] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,7 +39,8 @@ function AdminDashboard() {
       fetchUsers(),
       fetchStatistics(),
       fetchServices(),
-      fetchProfessionalApplications()
+      fetchProfessionalApplications(),
+      fetchBookings()
     ]).catch(err => {
       setError(err.message);
       if (err.message.includes('401')) {
@@ -141,6 +144,23 @@ function AdminDashboard() {
 
     const data = await response.json();
     setProfessionalApplications(data.applications || []);
+  };
+
+  const fetchBookings = async () => {
+    const token = localStorage.getItem('adminToken');
+    const response = await fetch(`${API_BASE_URL}/admin/bookings`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch bookings');
+    }
+
+    const data = await response.json();
+    setBookings(data.bookings || []);
   };
 
   const handleReviewProfessional = async (applicationId, status) => {
@@ -571,7 +591,7 @@ function AdminDashboard() {
 
   const sidebarItems = [
     { id: 'shop', icon: '🛍️', label: 'Shop', count: statistics?.totalUsers || 0 },
-    { id: 'orders', icon: '📦', label: 'Booking', count: 0 },
+    { id: 'orders', icon: '📦', label: 'Booking', count: bookings.length },
     { id: 'customers', icon: '👥', label: 'Customers', count: customerUsers.length },
     { id: 'professionals', icon: '🧑‍🔧', label: 'Professionals', count: professionalUsers.length, pendingCount: pendingApplicationsCount },
     { id: 'catalog', icon: '🧾', label: 'Services', count: services.length },
@@ -796,25 +816,67 @@ function AdminDashboard() {
               <section className="users-section">
                 <div className="users-header">
                   <h2>Orders</h2>
+                  <button type="button" className="theme-toggle-btn" onClick={fetchBookings}>Refresh</button>
                 </div>
-                <div className="placeholder-panel">
-                  <h3>Order Operations Dashboard</h3>
-                  <p>Connect this panel to your order APIs to track new, packed, shipped, and delivered orders in real time.</p>
-                  <div className="placeholder-metrics">
-                    <article>
-                      <strong>0</strong>
-                      <span>New Orders</span>
-                    </article>
-                    <article>
-                      <strong>0</strong>
-                      <span>Pending Dispatch</span>
-                    </article>
-                    <article>
-                      <strong>0</strong>
-                      <span>Returns</span>
-                    </article>
+                <div className="services-list">
+                  {bookings.length === 0 ? (
+                    <p>No bookings found.</p>
+                  ) : (
+                    bookings.map((booking) => (
+                      <div key={booking._id} className="service-item" onClick={() => setSelectedBooking(booking)}>
+                        <div className="service-item-info">
+                          <h4>{booking?.serviceId?.name || 'Service'}</h4>
+                          <p>Status: {booking.status}</p>
+                          <p>Customer: {booking?.customerId?.name || 'N/A'}</p>
+                          <p>Professional: {booking?.professionalId?.userId?.name || 'N/A'}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {selectedBooking && (
+                  <div className="service-detail-view" style={{ marginTop: 16 }}>
+                    <button className="back-btn" onClick={() => setSelectedBooking(null)}>← Close</button>
+                    <h3>Booking Workflow Details</h3>
+                    <p><strong>Status:</strong> {selectedBooking.status}</p>
+                    <p><strong>Start OTP:</strong> {selectedBooking.startOtp || 'N/A'}</p>
+                    <p><strong>Final OTP:</strong> {selectedBooking.completionOtp || 'N/A'}</p>
+                    <p><strong>Start OTP Verified At:</strong> {selectedBooking.startOtpVerifiedAt ? new Date(selectedBooking.startOtpVerifiedAt).toLocaleString() : 'N/A'}</p>
+                    <p><strong>Final OTP Verified At:</strong> {selectedBooking.completionOtpVerifiedAt ? new Date(selectedBooking.completionOtpVerifiedAt).toLocaleString() : 'N/A'}</p>
+                    {selectedBooking.workStartPhotoUrl ? (
+                      <div>
+                        <p><strong>Start Work Photo</strong></p>
+                        <img src={selectedBooking.workStartPhotoUrl} alt="Work start" style={{ maxWidth: 220, borderRadius: 8 }} />
+                      </div>
+                    ) : null}
+                    {selectedBooking.workEndPhotoUrl ? (
+                      <div>
+                        <p><strong>Work Completion Photo</strong></p>
+                        <img src={selectedBooking.workEndPhotoUrl} alt="Work end" style={{ maxWidth: 220, borderRadius: 8 }} />
+                      </div>
+                    ) : null}
+                    <div style={{ marginTop: 12 }}>
+                      <p><strong>Audit Timeline</strong></p>
+                      {Array.isArray(selectedBooking.auditLogs) && selectedBooking.auditLogs.length > 0 ? (
+                        <div>
+                          {selectedBooking.auditLogs
+                            .slice()
+                            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                            .map((entry, index) => (
+                              <p key={`${entry.action}-${entry.createdAt || index}`} style={{ marginBottom: 6 }}>
+                                [{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'N/A'}] {entry.action}
+                                {entry.actorRole ? ` by ${entry.actorRole}` : ''}
+                                {entry.notes ? ` - ${entry.notes}` : ''}
+                              </p>
+                            ))}
+                        </div>
+                      ) : (
+                        <p>No audit events yet.</p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </section>
             )}
 
