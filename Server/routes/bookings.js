@@ -5,6 +5,7 @@ const Professional = require('../models/Professional');
 const authMiddleware = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const cloudinary = require('../config/cloudinary');
+const heicConvert = require('heic-convert');
 const { emitToUser, emitGlobal } = require('../realtime/presence');
 
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
@@ -64,12 +65,37 @@ const endOfDay = (value) => {
   return date;
 };
 
-const uploadBufferToCloudinary = (buffer, folder, publicId) =>
-  new Promise((resolve, reject) => {
+const normalizeImageBuffer = async (buffer, mimeType) => {
+  const normalizedMimeType = String(mimeType || '').toLowerCase();
+
+  if (normalizedMimeType === 'image/heic' || normalizedMimeType === 'image/heif') {
+    const converted = await heicConvert({
+      buffer,
+      format: 'JPEG',
+      quality: 0.9,
+    });
+
+    return {
+      buffer: Buffer.from(converted),
+      extension: 'jpg',
+    };
+  }
+
+  return {
+    buffer,
+    extension: null,
+  };
+};
+
+const uploadBufferToCloudinary = async (buffer, folder, publicId, mimeType) => {
+  const normalized = await normalizeImageBuffer(buffer, mimeType);
+  const finalPublicId = normalized.extension ? `${publicId}.${normalized.extension}` : publicId;
+
+  return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        public_id: publicId,
+        public_id: finalPublicId,
         resource_type: 'image',
       },
       (error, result) => {
@@ -81,8 +107,9 @@ const uploadBufferToCloudinary = (buffer, folder, publicId) =>
       }
     );
 
-    uploadStream.end(buffer);
+    uploadStream.end(normalized.buffer);
   });
+};
 
 const startPhotoUpload = (req, res, next) => {
   upload.single('startPhoto')(req, res, (uploadError) => {
@@ -220,11 +247,19 @@ router.post('/professional/:id/start', authMiddleware, startPhotoUpload, async (
       return res.status(400).json({ message: 'Invalid start OTP' });
     }
 
-    const photoUpload = await uploadBufferToCloudinary(
-      req.file.buffer,
-      'kl-pro/bookings/start',
-      `booking-${booking._id}-start-${Date.now()}`
-    );
+    let photoUpload;
+    try {
+      photoUpload = await uploadBufferToCloudinary(
+        req.file.buffer,
+        'kl-pro/bookings/start',
+        `booking-${booking._id}-start-${Date.now()}`,
+        req.file.mimetype
+      );
+    } catch (uploadError) {
+      return res.status(400).json({
+        message: uploadError.message || 'Failed to upload start photo. Please try JPG or PNG image.',
+      });
+    }
 
     booking.workStartPhotoUrl = photoUpload.secure_url;
     booking.startOtpVerifiedAt = new Date();
@@ -275,11 +310,19 @@ router.post('/professional/:id/prepare-completion', authMiddleware, completionPh
       return res.status(400).json({ message: 'Booking must be in-progress before completion verification' });
     }
 
-    const photoUpload = await uploadBufferToCloudinary(
-      req.file.buffer,
-      'kl-pro/bookings/end',
-      `booking-${booking._id}-end-${Date.now()}`
-    );
+    let photoUpload;
+    try {
+      photoUpload = await uploadBufferToCloudinary(
+        req.file.buffer,
+        'kl-pro/bookings/end',
+        `booking-${booking._id}-end-${Date.now()}`,
+        req.file.mimetype
+      );
+    } catch (uploadError) {
+      return res.status(400).json({
+        message: uploadError.message || 'Failed to upload completion photo. Please try JPG or PNG image.',
+      });
+    }
 
     booking.workEndPhotoUrl = photoUpload.secure_url;
     booking.completionOtp = generateOtp();
