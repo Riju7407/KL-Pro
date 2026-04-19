@@ -65,10 +65,12 @@ const endOfDay = (value) => {
   return date;
 };
 
-const normalizeImageBuffer = async (buffer, mimeType) => {
+const normalizeImageBuffer = async (buffer, mimeType, fileName) => {
   const normalizedMimeType = String(mimeType || '').toLowerCase();
+  const lowerFileName = String(fileName || '').toLowerCase();
+  const extensionLooksHeic = lowerFileName.endsWith('.heic') || lowerFileName.endsWith('.heif');
 
-  if (normalizedMimeType === 'image/heic' || normalizedMimeType === 'image/heif') {
+  if (normalizedMimeType === 'image/heic' || normalizedMimeType === 'image/heif' || extensionLooksHeic) {
     const converted = await heicConvert({
       buffer,
       format: 'JPEG',
@@ -87,8 +89,8 @@ const normalizeImageBuffer = async (buffer, mimeType) => {
   };
 };
 
-const uploadBufferToCloudinary = async (buffer, folder, publicId, mimeType) => {
-  const normalized = await normalizeImageBuffer(buffer, mimeType);
+const uploadBufferToCloudinary = async (buffer, folder, publicId, mimeType, fileName) => {
+  const normalized = await normalizeImageBuffer(buffer, mimeType, fileName);
   const finalPublicId = normalized.extension ? `${publicId}.${normalized.extension}` : publicId;
 
   return new Promise((resolve, reject) => {
@@ -253,7 +255,8 @@ router.post('/professional/:id/start', authMiddleware, startPhotoUpload, async (
         req.file.buffer,
         'kl-pro/bookings/start',
         `booking-${booking._id}-start-${Date.now()}`,
-        req.file.mimetype
+        req.file.mimetype,
+        req.file.originalname
       );
     } catch (uploadError) {
       return res.status(400).json({
@@ -318,7 +321,8 @@ router.post('/professional/:id/prepare-completion', authMiddleware, completionPh
         req.file.buffer,
         'kl-pro/bookings/end',
         `booking-${booking._id}-end-${Date.now()}`,
-        req.file.mimetype
+        req.file.mimetype,
+        req.file.originalname
       );
     } catch (uploadError) {
       return res.status(400).json({
