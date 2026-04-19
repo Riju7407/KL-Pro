@@ -84,6 +84,24 @@ const uploadBufferToCloudinary = (buffer, folder, publicId) =>
     uploadStream.end(buffer);
   });
 
+const startPhotoUpload = (req, res, next) => {
+  upload.single('startPhoto')(req, res, (uploadError) => {
+    if (uploadError) {
+      return res.status(400).json({ message: uploadError.message || 'Invalid start photo upload request' });
+    }
+    next();
+  });
+};
+
+const completionPhotoUpload = (req, res, next) => {
+  upload.single('endPhoto')(req, res, (uploadError) => {
+    if (uploadError) {
+      return res.status(400).json({ message: uploadError.message || 'Invalid completion photo upload request' });
+    }
+    next();
+  });
+};
+
 // Get professional bookings for logged-in professional
 router.get('/professional/my-jobs', authMiddleware, async (req, res) => {
   try {
@@ -172,7 +190,7 @@ router.put('/professional/:id/status', authMiddleware, async (req, res) => {
 });
 
 // Professional starts work after OTP verification and start photo upload
-router.post('/professional/:id/start', authMiddleware, upload.single('startPhoto'), async (req, res) => {
+router.post('/professional/:id/start', authMiddleware, startPhotoUpload, async (req, res) => {
   try {
     const { startOtp } = req.body;
 
@@ -237,7 +255,7 @@ router.post('/professional/:id/start', authMiddleware, upload.single('startPhoto
 });
 
 // Professional uploads completion photo and generates final OTP for customer
-router.post('/professional/:id/prepare-completion', authMiddleware, upload.single('endPhoto'), async (req, res) => {
+router.post('/professional/:id/prepare-completion', authMiddleware, completionPhotoUpload, async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
       return res.status(400).json({ message: 'Completion photo is required' });

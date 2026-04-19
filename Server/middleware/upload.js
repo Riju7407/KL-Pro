@@ -7,11 +7,19 @@ const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
     // Check file type
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const allowedMimes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'));
+      cb(new Error('Invalid file type. Allowed: JPEG, PNG, GIF, WebP, HEIC, HEIF.'));
     }
   },
   limits: {
