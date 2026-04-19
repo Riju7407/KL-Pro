@@ -462,10 +462,12 @@ function Professionals() {
 
       const priceMatch = professional.startingPrice >= minPrice && professional.startingPrice <= maxPrice;
       const ratingMatch = professional.rating >= normalizedRating;
+      const normalizedDetectedCity = String(detectedCity || '').trim().toLowerCase();
+      const normalizedProfessionalCity = String(professional.location || '').trim().toLowerCase();
       const locationMatch =
-        detectedCity &&
-        (professional.location.toLowerCase().includes(detectedCity.toLowerCase()) ||
-          detectedCity.toLowerCase().includes(professional.location.toLowerCase()));
+        !normalizedDetectedCity ||
+        normalizedProfessionalCity.includes(normalizedDetectedCity) ||
+        normalizedDetectedCity.includes(normalizedProfessionalCity);
       const onlineMatch = professional.isOnline;
 
       return textMatch && specializationMatch && priceMatch && ratingMatch && locationMatch && onlineMatch;
@@ -618,6 +620,9 @@ function Professionals() {
       {locating && <p className="professionals-message">Detecting your current location...</p>}
       {!locating && detectedCity && (
         <p className="professionals-message">Showing professionals near {detectedCity}</p>
+      )}
+      {!locating && !detectedCity && (
+        <p className="professionals-message">Location unavailable. Showing online professionals.</p>
       )}
       {loading && <p className="professionals-message">Loading professionals...</p>}
 
