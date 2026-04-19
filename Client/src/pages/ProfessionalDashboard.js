@@ -17,6 +17,58 @@ const isSupportedUploadImage = (file) => {
   return ['.jpg', '.jpeg', '.png', '.webp'].some((ext) => lowerName.endsWith(ext));
 };
 
+const canvasToBlob = (canvas, mimeType, quality) =>
+  new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), mimeType, quality);
+  });
+
+const optimizeImageFile = async (file) => {
+  // If file is already small enough and in web-friendly format, keep as-is.
+  const safeMime = String(file.type || '').toLowerCase();
+  if (file.size <= 4.5 * 1024 * 1024 && ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(safeMime)) {
+    return file;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Unable to process selected image'));
+      img.src = objectUrl;
+    });
+
+    const maxDimension = 1600;
+    const ratio = Math.min(maxDimension / image.width, maxDimension / image.height, 1);
+    const targetWidth = Math.max(1, Math.round(image.width * ratio));
+    const targetHeight = Math.max(1, Math.round(image.height * ratio));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    let quality = 0.9;
+    let blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+
+    while (blob && blob.size > 4.5 * 1024 * 1024 && quality > 0.45) {
+      quality -= 0.1;
+      blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+    }
+
+    if (!blob) {
+      throw new Error('Unable to prepare image for upload');
+    }
+
+    const baseName = String(file.name || 'work-photo').replace(/\.[a-z0-9]+$/i, '');
+    return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 function ProfessionalDashboard() {
   const navigate = useNavigate();
   const token = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
@@ -395,6 +447,52 @@ function ProfessionalDashboard() {
       setError(completeError.message || 'Failed to complete booking');
     } finally {
       setUpdatingId('');
+    }
+  };
+
+  const handleStartPhotoSelect = async (jobId, selectedFile) => {
+    if (!selectedFile) {
+      setStartPhotoFiles((prev) => ({ ...prev, [jobId]: null }));
+      return;
+    }
+
+    try {
+      setError('');
+      const preparedFile = await optimizeImageFile(selectedFile);
+      if (!isSupportedUploadImage(preparedFile)) {
+        setError('Start photo must be JPG, PNG, or WebP.');
+        return;
+      }
+
+      setStartPhotoFiles((prev) => ({
+        ...prev,
+        [jobId]: preparedFile,
+      }));
+    } catch (photoError) {
+      setError(photoError.message || 'Failed to prepare start photo. Please choose another image.');
+    }
+  };
+
+  const handleEndPhotoSelect = async (jobId, selectedFile) => {
+    if (!selectedFile) {
+      setEndPhotoFiles((prev) => ({ ...prev, [jobId]: null }));
+      return;
+    }
+
+    try {
+      setError('');
+      const preparedFile = await optimizeImageFile(selectedFile);
+      if (!isSupportedUploadImage(preparedFile)) {
+        setError('Completion photo must be JPG, PNG, or WebP.');
+        return;
+      }
+
+      setEndPhotoFiles((prev) => ({
+        ...prev,
+        [jobId]: preparedFile,
+      }));
+    } catch (photoError) {
+      setError(photoError.message || 'Failed to prepare completion photo. Please choose another image.');
     }
   };
 
@@ -890,12 +988,7 @@ function ProfessionalDashboard() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                       capture="environment"
-                      onChange={(event) =>
-                        setStartPhotoFiles((prev) => ({
-                          ...prev,
-                          [job._id]: event.target.files?.[0] || null,
-                        }))
-                      }
+                      onChange={(event) => handleStartPhotoSelect(job._id, event.target.files?.[0] || null)}
                     />
                     <button
                       type="button"
@@ -913,12 +1006,7 @@ function ProfessionalDashboard() {
                       type="file"
                       accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                       capture="environment"
-                      onChange={(event) =>
-                        setEndPhotoFiles((prev) => ({
-                          ...prev,
-                          [job._id]: event.target.files?.[0] || null,
-                        }))
-                      }
+                      onChange={(event) => handleEndPhotoSelect(job._id, event.target.files?.[0] || null)}
                     />
                     <button
                       type="button"
