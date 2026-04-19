@@ -13,6 +13,34 @@ const THUMBNAIL_PALETTES = [
   ['#2b5fb8', '#7aa7f4'],
 ];
 
+const CITY_ALIASES = {
+  lucknow: ['lucknow', 'लखनऊ'],
+  delhi: ['delhi', 'नई दिल्ली', 'दिल्ली'],
+  mumbai: ['mumbai', 'मुंबई', 'बम्बई'],
+  kolkata: ['kolkata', 'कोलकाता', 'कलकत्ता'],
+  bengaluru: ['bengaluru', 'bangalore', 'बेंगलुरु', 'बैंगलोर'],
+  hyderabad: ['hyderabad', 'हैदराबाद'],
+  chennai: ['chennai', 'चेन्नई', 'मद्रास'],
+  pune: ['pune', 'पुणे'],
+  jaipur: ['jaipur', 'जयपुर'],
+  kanpur: ['kanpur', 'कानपुर'],
+  patna: ['patna', 'पटना'],
+  varanasi: ['varanasi', 'वाराणसी', 'banaras', 'बनारस'],
+};
+
+const normalizeCityName = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+
+  for (const [normalized, variants] of Object.entries(CITY_ALIASES)) {
+    if (variants.some((variant) => raw.includes(String(variant).toLowerCase()))) {
+      return normalized;
+    }
+  }
+
+  return raw;
+};
+
 const getInitials = (name) =>
   String(name || 'Pro')
     .split(' ')
@@ -280,10 +308,11 @@ function Professionals() {
           try {
             const { latitude, longitude } = position.coords;
             const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=en&lat=${latitude}&lon=${longitude}`,
               {
                 headers: {
                   Accept: 'application/json',
+                  'Accept-Language': 'en',
                 },
               }
             );
@@ -462,8 +491,8 @@ function Professionals() {
 
       const priceMatch = professional.startingPrice >= minPrice && professional.startingPrice <= maxPrice;
       const ratingMatch = professional.rating >= normalizedRating;
-      const normalizedDetectedCity = String(detectedCity || '').trim().toLowerCase();
-      const normalizedProfessionalCity = String(professional.location || '').trim().toLowerCase();
+      const normalizedDetectedCity = normalizeCityName(detectedCity);
+      const normalizedProfessionalCity = normalizeCityName(professional.location);
       const locationMatch =
         !normalizedDetectedCity ||
         normalizedProfessionalCity.includes(normalizedDetectedCity) ||
