@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './Products.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
@@ -16,18 +16,11 @@ function Products() {
   const location = useLocation();
 
   useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
     const params = new URLSearchParams(location.search);
     setSearchTerm(params.get('search') || '');
     setSelectedCategory(params.get('category') || 'all');
     setSortBy(params.get('sort') || 'popular');
   }, [location.search]);
-
-  const unwrapResponse = (response) => response?.data ?? response;
 
   const getProductImage = (product) => {
     const image = product?.images?.[0];
@@ -39,7 +32,7 @@ function Products() {
     return image?.url || product?.image || product?.imageUrl || '';
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE_URL}/products?limit=1000`, {
@@ -78,9 +71,9 @@ function Products() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/products/categories`, {
         method: 'GET',
@@ -94,7 +87,7 @@ function Products() {
       }
 
       const payload = await response.json();
-      const data = unwrapResponse(payload);
+      const data = payload?.data ?? payload;
 
       if (data?.success) {
         setCategories(data.mainCategories || data.categories || []);
@@ -102,7 +95,12 @@ function Products() {
     } catch (err) {
       console.error('Error fetching categories:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+  }, [fetchProducts, fetchCategories]);
 
   const updateQuery = (nextValues) => {
     const params = new URLSearchParams();

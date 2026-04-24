@@ -7,7 +7,6 @@ const ReviewForm = ({ productId, professionalId, onReviewSubmit, reviewType }) =
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const user = JSON.parse(localStorage.getItem('user'));
 
   const unwrapResponse = (response) => response?.data ?? response;
 

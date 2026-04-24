@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './AdminProductsSection.css';
 import {
   getProducts,
@@ -7,10 +7,8 @@ import {
   deleteProduct,
   uploadProductImages,
   deleteProductImage,
-  getProductCategories,
 } from '../api/services';
 import {
-  PRODUCT_CATEGORY_HIERARCHY,
   getMainCategories,
   getSubcategories,
   getSubSubcategories,
@@ -39,11 +37,7 @@ const AdminProductsSection = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [currentPage, searchTerm]);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getProducts({
@@ -61,7 +55,11 @@ const AdminProductsSection = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchTerm]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const handleAddProduct = () => {
     setFormData({
@@ -131,14 +129,6 @@ const AdminProductsSection = () => {
       ...formData,
       subSubcategory: value,
       subSubSubcategory: '',
-      size: '',
-    });
-  };
-
-  const handleSubSubSubcategoryChange = (value) => {
-    setFormData({
-      ...formData,
-      subSubSubcategory: value,
       size: '',
     });
   };
@@ -230,12 +220,7 @@ const AdminProductsSection = () => {
       alert('Images uploaded successfully');
       setImageFiles([]);
       // Refresh the product details
-      const response = await getProducts({ page: currentPage });
-      if (response.data?.success) {
-        setProducts(response.data.products);
-      } else if (response.success) {
-        setProducts(response.products);
-      }
+      await fetchProducts();
     } catch (err) {
       setError(err.response?.data?.message || 'Error uploading images');
     } finally {
@@ -253,12 +238,7 @@ const AdminProductsSection = () => {
       setError('');
       alert('Image deleted successfully');
       // Refresh the product details
-      const response = await getProducts({ page: currentPage });
-      if (response.data?.success) {
-        setProducts(response.data.products);
-      } else if (response.success) {
-        setProducts(response.products);
-      }
+      await fetchProducts();
     } catch (err) {
       setError(err.response?.data?.message || 'Error deleting image');
     }
@@ -276,10 +256,6 @@ const AdminProductsSection = () => {
 
   const availableSubcategories = getSubcategories(formData.category);
   const availableSubSubcategories = getSubSubcategories(
-    formData.category,
-    formData.subcategory
-  );
-  const availableSubSubSubcategories = getSubSubcategories(
     formData.category,
     formData.subcategory
   );

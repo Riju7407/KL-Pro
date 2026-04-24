@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './ProductDetails.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getProductById, getProductReviews, getProducts } from '../api/services';
@@ -23,18 +23,7 @@ function ProductDetails() {
 
   const unwrapResponse = (response) => response?.data ?? response;
 
-  useEffect(() => {
-    fetchProduct();
-    fetchReviews();
-  }, [id, reviewPage]);
-
-  useEffect(() => {
-    if (product?.category) {
-      fetchRelatedProducts(product.category);
-    }
-  }, [product]);
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getProductById(id);
@@ -48,9 +37,9 @@ function ProductDetails() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const fetchReviews = async (page = reviewPage) => {
+  const fetchReviews = useCallback(async (page = reviewPage) => {
     try {
       const response = await getProductReviews(id, { page, limit: 5 });
       const data = unwrapResponse(response);
@@ -62,14 +51,14 @@ function ProductDetails() {
     } catch (error) {
       console.error('Error fetching reviews:', error);
     }
-  };
+  }, [id, reviewPage]);
 
-  const fetchRelatedProducts = async (category) => {
+  const fetchRelatedProducts = useCallback(async (currentProduct) => {
     try {
       const response = await getProducts({ limit: 50 });
       const data = unwrapResponse(response);
       const items = Array.isArray(data) ? data : data?.products || [];
-      const currentPrice = Number(product?.price || 0);
+      const currentPrice = Number(currentProduct?.price || 0);
 
       const scoredItems = items
         .filter((item) => {
@@ -79,10 +68,10 @@ function ProductDetails() {
         .map((item) => {
           const itemPrice = Number(item?.price || 0);
           const priceDifference = currentPrice > 0 ? Math.abs(itemPrice - currentPrice) / currentPrice : 0;
-          const sameCategory = item?.category === category;
-          const sameSubcategory = item?.subcategory && item?.subcategory === product?.subcategory;
-          const sameSubSubcategory = item?.subSubcategory && item?.subSubcategory === product?.subSubcategory;
-          const sameSize = item?.size && item?.size === product?.size;
+          const sameCategory = item?.category === currentProduct?.category;
+          const sameSubcategory = item?.subcategory && item?.subcategory === currentProduct?.subcategory;
+          const sameSubSubcategory = item?.subSubcategory && item?.subSubcategory === currentProduct?.subSubcategory;
+          const sameSize = item?.size && item?.size === currentProduct?.size;
 
           let score = 0;
 
@@ -109,7 +98,18 @@ function ProductDetails() {
     } catch (error) {
       console.error('Error fetching related products:', error);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchProduct();
+    fetchReviews();
+  }, [fetchProduct, fetchReviews]);
+
+  useEffect(() => {
+    if (product?.category) {
+      fetchRelatedProducts(product);
+    }
+  }, [product, fetchRelatedProducts]);
 
   const getImageUrl = (image) => {
     if (!image) return '';
