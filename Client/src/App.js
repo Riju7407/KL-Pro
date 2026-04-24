@@ -14,6 +14,9 @@ import Profile from './pages/Profile';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import ProfessionalDashboard from './pages/ProfessionalDashboard';
+import Products from './pages/Products';
+import ProductDetails from './pages/ProductDetails';
+import Cart from './pages/Cart';
 
 function App() {
   return (
@@ -35,6 +38,9 @@ function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/services" element={<Services />} />
+                    <Route path="/products" element={<Products />} />
+                    <Route path="/product/:id" element={<ProductDetails />} />
+                    <Route path="/cart" element={<Cart />} />
                     <Route path="/professionals" element={<Professionals />} />
                     <Route path="/professionals/:id" element={<ProfessionalDetails />} />
                     <Route path="/bookings" element={<Bookings />} />

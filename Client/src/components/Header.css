@@ -20,7 +20,8 @@
   margin: 0 auto;
   padding: 12px 20px;
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 20px;
 }
@@ -86,8 +87,8 @@
 }
 
 .logo {
-  width: 45px;
-  height: 45px;
+  width: 90px;
+  height: 90px;
   object-fit: contain;
   transition: transform 0.3s ease;
 }
@@ -96,38 +97,56 @@
   transform: scale(1.05);
 }
 
-.logo-section h1 {
-  font-size: 1.8em;
-  color: var(--text-dark);
-  margin: 0;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.logo-link {
+  display: inline-flex;
+  align-items: center;
 }
 
 .navbar {
   display: flex;
-  gap: 30px;
+  gap: 18px;
   align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
 }
 
 .auth-links {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0;
+  justify-content: center;
 }
 
 .nav-link {
   text-decoration: none;
   color: var(--text-dark);
-  font-size: 1em;
+  font-size: 0.98em;
   font-weight: 600;
   transition: all 0.3s ease;
   position: relative;
   padding: 8px 0;
   white-space: nowrap;
+}
+
+.cart-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cart-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 20px;
+  text-align: center;
+  font-weight: 700;
 }
 
 .nav-link:hover {
@@ -257,6 +276,56 @@
 .logout-item {
   color: #e74c3c;
   border-top: 1px solid #f0f0f0;
+}
+
+@media (max-width: 1100px) {
+  .header-container {
+    justify-content: center;
+  }
+
+  .header-search {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .navbar {
+    order: 2;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .logo-section {
+    order: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-container {
+    padding: 12px 14px;
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .navbar {
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .auth-links {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .nav-link {
+    font-size: 0.92em;
+  }
+
+  .logo {
+    width: 74px;
+    height: 74px;
+  }
 }
 
 .logout-item:hover {

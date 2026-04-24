@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminServicesSection from '../components/AdminServicesSection';
+import AdminProductsSection from '../components/AdminProductsSection';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY, getHierarchyOptions, getServiceTypeOptions } from '../config/serviceHierarchy';
 import './AdminDashboard.css';
@@ -8,6 +9,7 @@ import './AdminDashboard.css';
 function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [services, setServices] = useState([]);
+  const [productCount, setProductCount] = useState(0);
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,6 +41,7 @@ function AdminDashboard() {
       fetchUsers(),
       fetchStatistics(),
       fetchServices(),
+      fetchProducts(),
       fetchProfessionalApplications(),
       fetchBookings()
     ]).catch(err => {
@@ -127,6 +130,24 @@ function AdminDashboard() {
 
     const data = await response.json();
     setServices(data.services || []);
+  };
+
+  const fetchProducts = async () => {
+    const token = localStorage.getItem('adminToken');
+    const response = await fetch(`${API_BASE_URL}/products?limit=1`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch products');
+    }
+
+    const data = await response.json();
+    const totalProducts = data.pagination?.total ?? data.products?.length ?? 0;
+    setProductCount(totalProducts);
   };
 
   const fetchProfessionalApplications = async () => {
@@ -595,6 +616,7 @@ function AdminDashboard() {
     { id: 'customers', icon: '👥', label: 'Customers', count: customerUsers.length },
     { id: 'professionals', icon: '🧑‍🔧', label: 'Professionals', count: professionalUsers.length, pendingCount: pendingApplicationsCount },
     { id: 'catalog', icon: '🧾', label: 'Services', count: services.length },
+    { id: 'products', icon: '📦', label: 'Products', count: productCount },
     { id: 'analytics', icon: '📈', label: 'Analytics', count: 3 },
     { id: 'settings', icon: '⚙️', label: 'Settings', count: null }
   ];
@@ -1305,6 +1327,10 @@ function AdminDashboard() {
             handleServiceImageChange={handleServiceImageChange}
             imagePreview={imagePreview}
           />
+        )}
+
+        {activeTab === 'products' && (
+          <AdminProductsSection />
         )}
 
             {activeTab === 'analytics' && (

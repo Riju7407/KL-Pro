@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { disconnectSocket } from '../api/socket';
+import { getCartCount } from '../utils/cart';
 import './Header.css';
 
 function Header() {
@@ -9,6 +10,7 @@ function Header() {
   const [authUser, setAuthUser] = useState(null);
   const [isAdminSession, setIsAdminSession] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,21 +52,31 @@ function Header() {
     };
 
     syncAuthState();
+    setCartCount(getCartCount());
     setShowUserMenu(false);
 
     const onStorage = () => syncAuthState();
+    const onCartUpdate = () => setCartCount(getCartCount());
     window.addEventListener('storage', onStorage);
+    window.addEventListener('cartUpdated', onCartUpdate);
 
     return () => {
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('cartUpdated', onCartUpdate);
     };
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (location.pathname === '/products') {
+      const params = new URLSearchParams(location.search);
+      setSearchQuery(params.get('search') || '');
+    }
+  }, [location.pathname, location.search]);
+
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      console.log('Searching for:', searchQuery);
-    }
+    const query = searchQuery.trim();
+    navigate(query ? `/products?search=${encodeURIComponent(query)}` : '/products');
   };
 
   const handleLogout = async () => {
@@ -112,7 +124,6 @@ function Header() {
         <div className="logo-section">
           <Link to="/" className="logo-link">
             <img src="/kl.png" alt="KLPro Pvt Ltd Logo" className="logo" />
-            <h1>KLPro Pvt Ltd</h1>
           </Link>
         </div>
         
@@ -132,6 +143,11 @@ function Header() {
           <Link to="/" className="nav-link">Home</Link>
           <Link to="/services" className="nav-link">Services</Link>
           <Link to="/professionals" className="nav-link">Professionals</Link>
+          <Link to="/products" className="nav-link">Products</Link>
+          <Link to="/cart" className="nav-link cart-nav-link">
+            <span>Add To Cart</span>
+            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+          </Link>
           <Link
             to={authUser?.userType === 'professional' ? '/professional/dashboard' : '/bookings'}
             className="nav-link"

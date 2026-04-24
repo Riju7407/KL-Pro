@@ -44,21 +44,8 @@ const io = new Server(server, {
 initPresenceSocket(io);
 
 // Custom middleware to handle both JSON and FormData
-app.use((req, res, next) => {
-  // Skip body parsers for multipart/form-data requests (they'll be handled by multer)
-  if (req.is('multipart/form-data')) {
-    return next();
-  }
-  express.json()(req, res, next);
-});
-
-app.use((req, res, next) => {
-  // Skip urlencoded for multipart/form-data requests
-  if (req.is('multipart/form-data')) {
-    return next();
-  }
-  express.urlencoded({ extended: true })(req, res, next);
-});
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Database Connection
 const connectDB = async () => {
@@ -83,6 +70,8 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/services', require('./routes/services'));
 app.use('/api/professionals', require('./routes/professionals'));
 app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/products', require('./routes/products'));
+app.use('/api/reviews', require('./routes/reviews'));
 
 // Health Check
 app.get('/', (req, res) => {

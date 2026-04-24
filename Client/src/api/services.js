@@ -38,3 +38,67 @@ export const bookingService = {
   update: (id, data) => api.put(`/bookings/${id}`, data),
   cancel: (id) => api.post(`/bookings/${id}/cancel`),
 };
+
+// Product Services
+export const getProducts = (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.category) params.append('category', filters.category);
+  if (filters.search) params.append('search', filters.search);
+  if (filters.page) params.append('page', filters.page);
+  if (filters.limit) params.append('limit', filters.limit);
+  return api.get(`/products?${params.toString()}`);
+};
+
+export const getProductById = (id) => api.get(`/products/${id}`);
+
+export const createProduct = (data) => api.post('/products', data);
+
+export const updateProduct = (id, data) => api.put(`/products/${id}`, data);
+
+export const deleteProduct = (id) => api.delete(`/products/${id}`);
+
+export const uploadProductImages = (productId, files) => {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('images', file);
+  });
+  return api.post(`/products/${productId}/images`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const deleteProductImage = (productId, publicId) =>
+  api.delete(`/products/${productId}/images`, {
+    data: { publicId },
+  });
+
+export const getProductCategories = () => api.get('/products/categories');
+
+// Review Services
+export const createReview = (data) => api.post('/reviews', data);
+
+export const getProductReviews = (productId, filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.page) params.append('page', filters.page);
+  if (filters.limit) params.append('limit', filters.limit);
+  return api.get(`/reviews/product/${productId}?${params.toString()}`);
+};
+
+export const getProfessionalReviews = (professionalId, filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.page) params.append('page', filters.page);
+  if (filters.limit) params.append('limit', filters.limit);
+  return api.get(`/reviews/professional/${professionalId}?${params.toString()}`);
+};
+
+export const getAllReviews = (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.reviewType) params.append('reviewType', filters.reviewType);
+  if (filters.page) params.append('page', filters.page);
+  if (filters.limit) params.append('limit', filters.limit);
+  return api.get(`/reviews?${params.toString()}`);
+};
+
+export const deleteReview = (reviewId) => api.delete(`/reviews/${reviewId}`);

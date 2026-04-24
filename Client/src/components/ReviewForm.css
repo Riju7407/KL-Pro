@@ -1,0 +1,169 @@
+.review-form-container {
+  margin-bottom: 24px;
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.92));
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.review-form-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 18px;
+}
+
+.review-form-container h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+
+.section-eyebrow {
+  margin: 0 0 6px;
+  color: #2563eb;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.review-form-subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.review-form .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.review-form .form-group label {
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+  font-size: 0.92rem;
+}
+
+.rating-input {
+  display: flex;
+  gap: 8px;
+  font-size: 2rem;
+}
+
+.star-btn {
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: transform 0.18s ease, color 0.18s ease;
+  user-select: none;
+}
+
+.star-btn:hover {
+  color: #f59e0b;
+  transform: translateY(-1px) scale(1.08);
+}
+
+.star-btn.active {
+  color: #f59e0b;
+}
+
+.rating-display {
+  font-size: 0.84rem;
+  color: #2563eb;
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.review-form textarea {
+  padding: 14px;
+  border: 1px solid #d8e1ed;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 130px;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.review-form textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.review-form textarea:disabled {
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.char-count {
+  font-size: 0.84rem;
+  color: #64748b;
+  margin-top: 6px;
+  text-align: right;
+}
+
+.message {
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.message.success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #166534;
+  border: 1px solid rgba(34, 197, 94, 0.16);
+}
+
+.message.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+  border: 1px solid rgba(239, 68, 68, 0.16);
+}
+
+.submit-btn {
+  padding: 13px 22px;
+  background: linear-gradient(135deg, #0f172a, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.22);
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.28);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .review-form-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rating-input {
+    gap: 4px;
+    font-size: 1.6rem;
+  }
+}

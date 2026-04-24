@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { professionalService, serviceService } from '../api/services';
+import { professionalService, serviceService, getProfessionalReviews } from '../api/services';
 import { getSocket } from '../api/socket';
+import ReviewForm from '../components/ReviewForm';
+import ReviewsList from '../components/ReviewsList';
 import API_BASE_URL from '../config/apiConfig';
 import './ProfessionalDetails.css';
 
@@ -236,6 +238,11 @@ function ProfessionalDetails() {
   const [ratingLoading, setRatingLoading] = useState(false);
   const [ratingMessage, setRatingMessage] = useState('');
 
+  const [reviews, setReviews] = useState([]);
+  const [currentReviewPage, setCurrentReviewPage] = useState(1);
+  const [totalReviewPages, setTotalReviewPages] = useState(1);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setLiveNow(Date.now());
@@ -330,6 +337,24 @@ function ProfessionalDetails() {
       nowMs: liveNow,
     });
   }, [professional, selectedDate, liveNow]);
+
+  const fetchReviews = async (professionalId) => {
+    try {
+      setReviewsLoading(true);
+      const response = await getProfessionalReviews(professionalId, {
+        page: currentReviewPage,
+        limit: 5,
+      });
+      if (response.success) {
+        setReviews(response.reviews);
+        setTotalReviewPages(response.pagination.pages);
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
 
   const handleContinueBooking = () => {
     if (!professional) return;
@@ -552,6 +577,39 @@ function ProfessionalDetails() {
       </div>
 
       {slotNotice && <p className="slot-notice">{slotNotice}</p>}
+
+      <div className="reviews-section" style={{ marginTop: '40px' }}>
+        <h2>Reviews & Ratings</h2>
+
+        {isLoggedIn ? (
+          <ReviewForm
+            professionalId={professional._id || id}
+            onReviewSubmit={() => {
+              setCurrentReviewPage(1);
+              fetchReviews(id);
+            }}
+            reviewType="professional"
+          />
+        ) : (
+          <div className="login-prompt">
+            <p>Please log in to leave a review</p>
+            <button onClick={() => navigate('/login')}>Login</button>
+          </div>
+        )}
+
+        {reviewsLoading ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+            Loading reviews...
+          </div>
+        ) : (
+          <ReviewsList
+            reviews={reviews}
+            currentPage={currentReviewPage}
+            totalPages={totalReviewPages}
+            onPageChange={setCurrentReviewPage}
+          />
+        )}
+      </div>
 
       <div className="details-actions">
         <button type="button" className="primary" onClick={handleContinueBooking}>
