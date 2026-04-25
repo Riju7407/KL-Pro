@@ -1,0 +1,323 @@
+.call-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 198, 61, 0.22), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(31, 143, 78, 0.18), transparent 34%),
+    rgba(12, 18, 28, 0.52);
+  backdrop-filter: blur(14px);
+}
+
+.call-modal {
+  width: min(520px, 100%);
+  border-radius: 22px;
+  padding: 20px;
+  color: #f8fafc;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(17, 24, 39, 0.94));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+
+.call-modal-topline,
+.call-panel-header,
+.call-meta-row,
+.call-modal-actions,
+.call-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.call-modal-topline {
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.call-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.incoming-pill {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.mode-pill,
+.live-pill {
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbeafe;
+}
+
+.call-modal h3 {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.7rem);
+  line-height: 1.1;
+}
+
+.call-modal p {
+  margin: 10px 0 0;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.call-participant-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.call-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  background: linear-gradient(135deg, #fef3c7, #f59e0b);
+}
+
+.call-participant-card strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.call-participant-card span {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.9rem;
+  color: rgba(226, 232, 240, 0.74);
+}
+
+.call-modal-actions {
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.call-modal-actions button,
+.call-controls button,
+.call-end {
+  border: none;
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease, background 160ms ease;
+}
+
+.call-modal-actions button,
+.call-controls button {
+  min-height: 46px;
+  padding: 0 16px;
+}
+
+.call-modal-actions button:hover,
+.call-controls button:hover,
+.call-end:hover {
+  transform: translateY(-1px);
+}
+
+.call-modal-actions button:active,
+.call-controls button:active,
+.call-end:active {
+  transform: translateY(0);
+}
+
+.call-accept {
+  background: linear-gradient(135deg, #22c55e, #15803d);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(21, 128, 61, 0.28);
+}
+
+.call-decline,
+.call-end {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(185, 28, 28, 0.28);
+}
+
+.call-overlay-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: min(560px, calc(100% - 36px));
+  border-radius: 24px;
+  padding: 18px;
+  z-index: 1190;
+  color: #e2e8f0;
+  background: linear-gradient(180deg, rgba(8, 15, 28, 0.96), rgba(10, 17, 31, 0.94));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+}
+
+.call-panel-header {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.call-panel-title-group {
+  min-width: 0;
+}
+
+.call-panel-title-group strong {
+  display: block;
+  font-size: clamp(1rem, 2.6vw, 1.15rem);
+  color: #f8fafc;
+}
+
+.call-panel-title-group p {
+  margin: 6px 0 0;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.92rem;
+}
+
+.call-meta-row {
+  flex-wrap: wrap;
+  margin: 16px 0 14px;
+}
+
+.call-meta-card {
+  flex: 1 1 180px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.call-meta-card span {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.call-meta-card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.98rem;
+  color: #f8fafc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-video-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.call-video-card {
+  border-radius: 18px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.call-video-card.primary {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.14), rgba(255, 255, 255, 0.05));
+}
+
+.call-video-card span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.video-surface {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #0f172a, #111827 58%, #020617);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.call-video-card.waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 190px;
+  text-align: center;
+}
+
+.call-video-card.waiting p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.95rem;
+}
+
+.call-audio-info {
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.call-audio-info p {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.call-controls {
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.call-controls button {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.call-end {
+  min-height: 44px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+
+.call-error {
+  margin-top: 10px;
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .call-overlay-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: 12px;
+    padding: 14px;
+  }
+
+  .call-video-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .call-panel-header {
+    gap: 10px;
+  }
+
+  .call-end {
+    align-self: flex-start;
+  }
+}

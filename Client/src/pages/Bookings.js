@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { getSocket } from '../api/socket';
+import { useCall } from '../context/CallContext';
 import './Bookings.css';
 
 const isObjectId = (value) => /^[a-fA-F0-9]{24}$/.test(String(value || ''));
@@ -36,6 +37,7 @@ const getProfessionalName = (professionalIdField) => {
 function Bookings() {
   const navigate = useNavigate();
   const token = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
+  const { startBookingAudioCall, isCallBusy } = useCall();
 
   const [bookings, setBookings] = useState([]);
   const [professionals, setProfessionals] = useState([]);
@@ -45,6 +47,7 @@ function Bookings() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [prefillNotice, setPrefillNotice] = useState('');
+  const [callingBookingId, setCallingBookingId] = useState('');
 
   const [formData, setFormData] = useState({
     professionalId: '',
@@ -359,6 +362,23 @@ function Bookings() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleBookingAudioCall = async (bookingId) => {
+    if (!token) {
+      setError('Please login to use audio call.');
+      return;
+    }
+
+    try {
+      setError('');
+      setCallingBookingId(bookingId);
+      await startBookingAudioCall(bookingId);
+    } catch (callError) {
+      setError(callError.message || 'Unable to start audio call right now.');
+    } finally {
+      setCallingBookingId('');
+    }
+  };
+
   return (
     <div className="bookings">
       <h1>Bookings</h1>
@@ -554,6 +574,16 @@ function Bookings() {
                     {String(booking.status || 'pending').replace('-', ' ')}
                   </span>
                   <div className="booking-actions">
+                    {['confirmed', 'in-progress'].includes(String(booking.status || '')) && (
+                      <button
+                        type="button"
+                        className="btn-reschedule"
+                        onClick={() => handleBookingAudioCall(booking._id)}
+                        disabled={isCallBusy || callingBookingId === booking._id}
+                      >
+                        {callingBookingId === booking._id ? 'Connecting Call...' : 'Audio Call'}
+                      </button>
+                    )}
                     <button type="button" className="btn-reschedule" onClick={() => handleRebook(booking)}>
                       Rebook
                     </button>

@@ -1,11 +1,18 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const connectedSocketToUser = new Map();
+const connectedSocketToPrincipal = new Map();
 const connectedUsersToSockets = new Map();
 const onlineProfessionalUsers = new Set();
+const connectedAdminPrincipals = new Set();
 
 let ioRef = null;
+
+const getAdminSocketKey = (adminPayload = {}) => {
+  const adminIdentifier = String(adminPayload.email || adminPayload.adminId || '').trim().toLowerCase();
+  if (!adminIdentifier) return null;
+  return `admin:${adminIdentifier}`;
+};
 
 const emitProfessionalPresence = (userId, isOnline) => {
   if (!ioRef || !userId) return;
@@ -30,6 +37,13 @@ const emitToUser = (userId, eventName, payload) => {
   });
 };
 
+const emitToAdmins = (eventName, payload) => {
+  if (!eventName) return;
+  connectedAdminPrincipals.forEach((adminKey) => {
+    emitToUser(adminKey, eventName, payload);
+  });
+};
+
 const emitGlobal = (eventName, payload) => {
   if (!ioRef || !eventName) return;
   ioRef.emit(eventName, payload);
@@ -47,41 +61,61 @@ const initPresenceSocket = (io) => {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_secret_key');
-      if (!decoded?.id) return;
+      let principalKey = null;
+      let professionalUserId = null;
 
-      const user = await User.findById(decoded.id).select('userType');
-      if (!user) return;
-
-      connectedSocketToUser.set(socket.id, String(user._id));
-
-      const existingSocketSet = connectedUsersToSockets.get(String(user._id)) || new Set();
-      existingSocketSet.add(socket.id);
-      connectedUsersToSockets.set(String(user._id), existingSocketSet);
-
-      if (user.userType === 'professional') {
-        onlineProfessionalUsers.add(String(user._id));
-        emitProfessionalPresence(String(user._id), true);
+      if (decoded?.role === 'admin') {
+        principalKey = getAdminSocketKey(decoded);
+        if (!principalKey) return;
+        connectedAdminPrincipals.add(principalKey);
+      } else if (decoded?.id) {
+        const user = await User.findById(decoded.id).select('userType');
+        if (!user) return;
+        principalKey = String(user._id);
+        if (user.userType === 'professional') {
+          professionalUserId = String(user._id);
+          onlineProfessionalUsers.add(professionalUserId);
+          emitProfessionalPresence(professionalUserId, true);
+        }
       }
 
+      if (!principalKey) return;
+
+      connectedSocketToPrincipal.set(socket.id, {
+        principalKey,
+        professionalUserId,
+        isAdmin: decoded?.role === 'admin',
+      });
+
+      const existingSocketSet = connectedUsersToSockets.get(principalKey) || new Set();
+      existingSocketSet.add(socket.id);
+      connectedUsersToSockets.set(principalKey, existingSocketSet);
+
       socket.on('disconnect', () => {
-        const userId = connectedSocketToUser.get(socket.id);
-        connectedSocketToUser.delete(socket.id);
+        const meta = connectedSocketToPrincipal.get(socket.id);
+        connectedSocketToPrincipal.delete(socket.id);
 
-        if (!userId) return;
+        if (!meta?.principalKey) return;
 
-        const userSocketSet = connectedUsersToSockets.get(String(userId));
+        const userSocketSet = connectedUsersToSockets.get(meta.principalKey);
         if (userSocketSet) {
           userSocketSet.delete(socket.id);
           if (!userSocketSet.size) {
-            connectedUsersToSockets.delete(String(userId));
+            connectedUsersToSockets.delete(meta.principalKey);
           }
         }
 
-        const stillConnected = Boolean(connectedUsersToSockets.get(String(userId))?.size);
+        if (meta.isAdmin && !connectedUsersToSockets.get(meta.principalKey)?.size) {
+          connectedAdminPrincipals.delete(meta.principalKey);
+        }
 
-        if (!stillConnected && onlineProfessionalUsers.has(String(userId))) {
-          onlineProfessionalUsers.delete(String(userId));
-          emitProfessionalPresence(String(userId), false);
+        if (!meta.professionalUserId) return;
+
+        const stillConnected = Boolean(connectedUsersToSockets.get(meta.principalKey)?.size);
+
+        if (!stillConnected && onlineProfessionalUsers.has(meta.professionalUserId)) {
+          onlineProfessionalUsers.delete(meta.professionalUserId);
+          emitProfessionalPresence(meta.professionalUserId, false);
         }
       });
     } catch (error) {
@@ -93,6 +127,8 @@ const initPresenceSocket = (io) => {
 module.exports = {
   initPresenceSocket,
   getOnlineProfessionalUserIds,
+  getAdminSocketKey,
   emitToUser,
+  emitToAdmins,
   emitGlobal,
 };

@@ -30,6 +30,17 @@ const uploadBufferToCloudinary = (buffer, folder, publicId) =>
     uploadStream.end(buffer);
   });
 
+const resolveProfessionalCity = (professionalDoc) => {
+  const professional = professionalDoc?.toObject ? professionalDoc.toObject() : professionalDoc;
+  return String(
+    professional?.currentCity ||
+      professional?.userId?.city ||
+      professional?.userId?.address ||
+      professional?.userId?.profileCity ||
+      ''
+  ).trim();
+};
+
 const profileImageUpload = (req, res, next) => {
   upload.single('profileImage')(req, res, (uploadError) => {
     if (uploadError) {
@@ -108,6 +119,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     const onlineSet = getOnlineProfessionalUserIds();
     const result = professional.toObject();
     result.isOnline = onlineSet.has(String(result.userId?._id || ''));
+    result.currentCity = resolveProfessionalCity(result);
 
     res.json(result);
   } catch (error) {
@@ -122,7 +134,7 @@ router.put('/me', authMiddleware, profileImageUpload, async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized request' });
     }
 
-    const { category, subCategory, subSubCategory, serviceType, bio, experience } = req.body;
+    const { category, subCategory, subSubCategory, serviceType, currentCity, bio, experience } = req.body;
     let parsedAvailability = req.body.availability;
     let parsedServices = req.body.services;
 
@@ -156,6 +168,7 @@ router.put('/me', authMiddleware, profileImageUpload, async (req, res) => {
     const normalizedSubCategory = typeof subCategory === 'string' ? subCategory.trim() : '';
     const normalizedSubSubCategory = typeof subSubCategory === 'string' ? subSubCategory.trim() : '';
     const normalizedServiceType = typeof serviceType === 'string' ? serviceType.trim() : '';
+    const normalizedCurrentCity = typeof currentCity === 'string' ? currentCity.trim() : '';
 
     const updates = {};
 
@@ -163,6 +176,7 @@ router.put('/me', authMiddleware, profileImageUpload, async (req, res) => {
     if (subCategory !== undefined && normalizedSubCategory) updates.subCategory = normalizedSubCategory;
     if (subSubCategory !== undefined) updates.subSubCategory = normalizedSubSubCategory;
     if (serviceType !== undefined) updates.serviceType = normalizedServiceType;
+    if (currentCity !== undefined) updates.currentCity = normalizedCurrentCity;
     if (bio !== undefined) updates.bio = bio;
     if (experience !== undefined) updates.experience = Number(experience) || 0;
 
@@ -211,7 +225,10 @@ router.put('/me', authMiddleware, profileImageUpload, async (req, res) => {
       'name email phone rating approvalStatus profileImage'
     );
 
-    res.json(populated);
+    const result = populated.toObject();
+    result.currentCity = resolveProfessionalCity(result);
+
+    res.json(result);
   } catch (error) {
     if (error?.name === 'ValidationError') {
       return res.status(400).json({ message: error.message });
@@ -237,6 +254,7 @@ router.get('/', async (req, res) => {
     const mapped = professionals.map((professional) => {
       const result = professional.toObject();
       result.isOnline = onlineSet.has(String(result.userId?._id || ''));
+      result.currentCity = resolveProfessionalCity(result);
       return result;
     });
 

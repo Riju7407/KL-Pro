@@ -7,6 +7,7 @@ const upload = require('../middleware/upload');
 const cloudinary = require('../config/cloudinary');
 const heicConvert = require('heic-convert');
 const { emitToUser, emitGlobal } = require('../realtime/presence');
+const { endCallSession } = require('../services/callSessionService');
 
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 const ACTIVE_BLOCKING_STATUSES = ['pending', 'confirmed', 'in-progress'];
@@ -197,6 +198,13 @@ router.put('/professional/:id/status', authMiddleware, async (req, res) => {
       notes: `Booking marked as ${status}`,
     });
     await booking.save();
+
+    if (['rejected', 'cancelled'].includes(status)) {
+      endCallSession('booking', booking._id, {
+        reason: `booking-${status}`,
+        endedBy: req.userId,
+      });
+    }
 
     if (status === 'pending' || ACTIVE_BLOCKING_STATUSES.includes(status)) {
       emitProfessionalAvailabilityChange(professional._id, 'blocked', `booking-${status}`);
@@ -396,6 +404,11 @@ router.post('/professional/:id/complete', authMiddleware, async (req, res) => {
       notes: 'Completion OTP verified by professional',
     });
     await booking.save();
+
+    endCallSession('booking', booking._id, {
+      reason: 'booking-completed',
+      endedBy: req.userId,
+    });
 
     emitProfessionalAvailabilityChange(professional._id, 'available', 'booking-completed');
     emitBookingStatusChanged({
@@ -604,6 +617,11 @@ router.post('/:id/cancel', authMiddleware, async (req, res) => {
       notes: 'Customer cancelled booking',
     });
     await booking.save();
+
+    endCallSession('booking', booking._id, {
+      reason: 'booking-cancelled',
+      endedBy: req.userId,
+    });
 
     const professional = await Professional.findById(booking.professionalId).select('_id userId');
     if (professional) {

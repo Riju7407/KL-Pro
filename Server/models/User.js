@@ -28,6 +28,10 @@ const userSchema = new mongoose.Schema(
     city: {
       type: String,
     },
+    currentCity: {
+      type: String,
+      default: null,
+    },
     profileImage: {
       type: String,
       default: null,

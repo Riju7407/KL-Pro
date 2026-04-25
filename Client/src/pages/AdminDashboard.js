@@ -4,9 +4,11 @@ import AdminServicesSection from '../components/AdminServicesSection';
 import AdminProductsSection from '../components/AdminProductsSection';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY, getHierarchyOptions, getServiceTypeOptions } from '../config/serviceHierarchy';
+import { useCall } from '../context/CallContext';
 import './AdminDashboard.css';
 
 function AdminDashboard() {
+  const { startKycVideoCall, isCallBusy } = useCall();
   const [users, setUsers] = useState([]);
   const [services, setServices] = useState([]);
   const [productCount, setProductCount] = useState(0);
@@ -27,6 +29,7 @@ function AdminDashboard() {
   const [applicationActionLoadingId, setApplicationActionLoadingId] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [kycCallingId, setKycCallingId] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -208,6 +211,18 @@ function AdminDashboard() {
       setError(err.message || 'Failed to review professional application');
     } finally {
       setApplicationActionLoadingId(null);
+    }
+  };
+
+  const handleStartKycCall = async (applicationId) => {
+    try {
+      setError('');
+      setKycCallingId(applicationId);
+      await startKycVideoCall(applicationId);
+    } catch (callError) {
+      setError(callError.message || 'Unable to start KYC video call.');
+    } finally {
+      setKycCallingId('');
     }
   };
 
@@ -1146,6 +1161,14 @@ function AdminDashboard() {
                             )}
                           </td>
                           <td>
+                            <button
+                              className="btn-view"
+                              type="button"
+                              disabled={isCallBusy || applicationActionLoadingId === application._id || kycCallingId === application._id}
+                              onClick={() => handleStartKycCall(application._id)}
+                            >
+                              {kycCallingId === application._id ? 'Connecting...' : 'Video KYC Call'}
+                            </button>
                             <button
                               className="btn-view"
                               type="button"

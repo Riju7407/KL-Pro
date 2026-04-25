@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Professional = require('../models/Professional');
+const { endCallSession } = require('../services/callSessionService');
 
 // Admin Login
 const adminLogin = (req, res) => {
@@ -327,6 +328,11 @@ const reviewProfessionalApplication = async (req, res) => {
     professional.reviewedByAdminEmail = req.admin?.email || '';
     professional.reviewedAt = new Date();
     await professional.save();
+
+    endCallSession('kyc', professional._id, {
+      reason: `kyc-${status}`,
+      endedBy: req.admin?.email || 'admin',
+    });
 
     const userUpdate = {
       approvalStatus: status,

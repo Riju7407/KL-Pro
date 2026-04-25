@@ -180,6 +180,33 @@
   font: inherit;
 }
 
+.current-city-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: stretch;
+}
+
+.current-city-btn {
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0f5aa3, #1a73e8);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0.52rem 0.9rem;
+  white-space: nowrap;
+}
+
+.current-city-btn:hover {
+  filter: brightness(1.04);
+}
+
+.current-city-btn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
 .pro-editor-full {
   grid-column: 1 / -1;
 }
@@ -423,6 +450,16 @@
     margin-top: 1rem;
   }
 
+
+@media (max-width: 640px) {
+  .current-city-row {
+    grid-template-columns: 1fr;
+  }
+
+  .current-city-btn {
+    width: 100%;
+  }
+}
   .pro-hero {
     flex-direction: column;
   }

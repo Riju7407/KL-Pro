@@ -34,6 +34,57 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Geolocation for city autofill
+  const getCurrentCity = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve('');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+          const data = await response.json();
+          const city = data.address.city || data.address.town || data.address.village || data.address.state_district || data.address.state || '';
+          resolve(city);
+        } catch (err) {
+          resolve('');
+        }
+      }, () => {
+        resolve('');
+      });
+    });
+  };
+
+  const handleUseCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
+      return;
+    }
+    setError('');
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+      try {
+        // Use a free reverse geocoding API (OpenStreetMap Nominatim)
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+        const data = await response.json();
+        const city = data.address.city || data.address.town || data.address.village || data.address.state_district || data.address.state || '';
+        if (city) {
+          setFormData((prev) => ({ ...prev, city }));
+        } else {
+          setError('Could not detect city from your location');
+        }
+      } catch (err) {
+        setError('Failed to fetch city from location');
+      }
+    }, () => {
+      setError('Unable to retrieve your location');
+    });
+  };
+
+  const toggleMode = () => setIsLogin(!isLogin);
+
   useEffect(() => {
     const mode = (searchParams.get('mode') || '').toLowerCase();
     setIsLogin(mode !== 'signup');
@@ -123,6 +174,12 @@ function Login() {
         ? { email: formData.email, password: formData.password }
         : null;
 
+      let currentCity = '';
+      if (isLogin) {
+        currentCity = await getCurrentCity();
+        payload.currentCity = currentCity;
+      }
+
       let response;
       let data;
       if (isLogin) {
@@ -141,6 +198,14 @@ function Login() {
           return;
         }
       } else {
+        // Strict validation for customer required fields
+        if (formData.userType !== 'professional') {
+          if (!formData.name || !formData.email || !formData.password) {
+            setError('Name, email, and password are required for customer registration.');
+            setLoading(false);
+            return;
+          }
+        }
         const registerData = new FormData();
         registerData.append('name', formData.name);
         registerData.append('email', formData.email);
@@ -150,16 +215,17 @@ function Login() {
         registerData.append('userType', formData.userType);
 
         if (formData.userType === 'professional') {
-          if (!formData.panCardImage || !formData.aadhaarCardImage) {
-            setError('PAN and Aadhaar images are required for professional registration');
+          // Strict validation for all required fields
+          if (!formData.professionalCategory || !formData.professionalSubCategory || !formData.panCardNumber || !formData.aadhaarCardNumber || !formData.panCardImage || !formData.aadhaarCardImage) {
+            setError('All professional fields are required: Category, Subcategory, PAN number, Aadhaar number, PAN image, Aadhaar image.');
             setLoading(false);
             return;
           }
-
           registerData.append('professionalCategory', formData.professionalCategory);
           registerData.append('professionalSubCategory', formData.professionalSubCategory);
           registerData.append('professionalSubSubCategory', formData.professionalSubSubCategory);
           registerData.append('professionalServiceType', formData.professionalServiceType);
+          registerData.append('currentCity', formData.city || '');
           if (formData.profileImage) {
             registerData.append('profileImage', formData.profileImage);
           }
@@ -185,89 +251,41 @@ function Login() {
       }
 
       if (!isLogin && data.requiresApproval) {
-        setError('Registration submitted. Wait for admin approval before login.');
-        setIsLogin(true);
+        // Registration for professional: show message and redirect to login
+        setTimeout(() => {
+          setIsLogin(true);
+          setError('Registration submitted. Wait for admin approval before login. Redirecting to sign-in...');
+        }, 100);
+        setTimeout(() => {
+          setError('');
+          navigate('/login');
+        }, 2500);
+        return;
+      }
+      if (!isLogin && !data.requiresApproval) {
+        // Registration for customer: redirect to login
+        setTimeout(() => {
+          setIsLogin(true);
+          setError('Registration successful! Redirecting to sign-in...');
+        }, 100);
+        setTimeout(() => {
+          setError('');
+          navigate('/login');
+        }, 2000);
         return;
       }
 
       if (isLogin) {
         const userType = data?.user?.userType;
-        const roleMismatch =
-          (loginAs === 'admin' && userType !== 'admin') ||
-          (loginAs === 'professional' && userType !== 'professional') ||
-          (loginAs === 'user' && userType !== 'customer');
-
-        if (roleMismatch) {
-          setError(`Selected role does not match this account. Please choose ${userType || 'the correct role'} and login again.`);
-          return;
-        }
+        // Login successful, navigate to home
+        navigate('/');
       }
-
-      // Store token and user info if login succeeded
-      if (data.token) {
-        disconnectSocket();
-        if (data?.user?.userType === 'admin') {
-          localStorage.removeItem('userToken');
-          localStorage.removeItem('user');
-          localStorage.setItem('adminToken', data.token);
-          localStorage.setItem('adminEmail', data.user.email);
-        } else {
-          localStorage.removeItem('adminToken');
-          localStorage.removeItem('adminEmail');
-          localStorage.setItem('userToken', data.token);
-        }
-      }
-
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify({
-          id: data.user.id,
-          name: data.user.name,
-          email: data.user.email,
-          userType: data.user.userType,
-          approvalStatus: data.user.approvalStatus
-        }));
-      }
-
-      if (isLogin) {
-        if (data?.user?.userType === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (data?.user?.userType === 'professional') {
-          navigate('/professional/dashboard');
-        } else {
-          navigate('/');
-        }
-      }
-    } catch (err) {
-      setError(err.message || 'Server error. Please try again.');
+    } catch (error) {
+      console.error('Error:', error);
+      setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setLoginAs('user');
-    setError('');
-    setFormData({
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      phone: '',
-      city: '',
-      userType: 'customer',
-      professionalCategory: '',
-      professionalSubCategory: '',
-      professionalSubSubCategory: '',
-      professionalServiceType: '',
-      profileImage: null,
-      panCardNumber: '',
-      aadhaarCardNumber: '',
-      panCardImage: null,
-      aadhaarCardImage: null,
-      experience: '',
-      bio: ''
-    });
   };
 
   const professionalCategories = Object.keys(SERVICE_HIERARCHY);

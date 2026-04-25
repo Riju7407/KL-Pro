@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY, getHierarchyOptions } from '../config/serviceHierarchy';
 import { getSocket, disconnectSocket } from '../api/socket';
+import { useCall } from '../context/CallContext';
 import './ProfessionalDashboard.css';
 
 const formatCurrency = (amount) => `INR ${Number(amount || 0).toLocaleString('en-IN')}`;
@@ -72,14 +73,17 @@ const optimizeImageFile = async (file) => {
 function ProfessionalDashboard() {
   const navigate = useNavigate();
   const token = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
+  const { startBookingAudioCall, startKycVideoCall, isCallBusy } = useCall();
 
   const [profile, setProfile] = useState(null);
   const [jobs, setJobs] = useState([]);
+  const [professionalRecordId, setProfessionalRecordId] = useState('');
   const [profileForm, setProfileForm] = useState({
     category: '',
     subCategory: '',
     subSubCategory: '',
     serviceType: '',
+    currentCity: '',
     bio: '',
     experience: '',
     availability: [],
@@ -99,6 +103,9 @@ function ProfessionalDashboard() {
   const [startPhotoFiles, setStartPhotoFiles] = useState({});
   const [endPhotoFiles, setEndPhotoFiles] = useState({});
   const [completionOtpInputs, setCompletionOtpInputs] = useState({});
+  const [callingBookingId, setCallingBookingId] = useState('');
+  const [isKycCalling, setIsKycCalling] = useState(false);
+  const [isResolvingCurrentCity, setIsResolvingCurrentCity] = useState(false);
 
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -176,6 +183,7 @@ function ProfessionalDashboard() {
           const jobsData = await jobsResponse.json();
           setJobs(Array.isArray(jobsData?.bookings) ? jobsData.bookings : []);
           setApprovalStatus(jobsData?.approvalStatus || profileData.approvalStatus || 'approved');
+          setProfessionalRecordId(String(jobsData?.professionalId || ''));
         }
 
         if (professionalResponse.ok) {
@@ -200,6 +208,7 @@ function ProfessionalDashboard() {
             subCategory: resolvedSubCategory,
             subSubCategory: professionalData?.subSubCategory || '',
             serviceType: professionalData?.serviceType || '',
+            currentCity: professionalData?.currentCity || profileData?.city || '',
             bio: professionalData?.bio || '',
             experience: String(professionalData?.experience ?? ''),
             availability: Array.isArray(professionalData?.availability)
@@ -215,6 +224,7 @@ function ProfessionalDashboard() {
           });
           setApprovalStatus(professionalData?.approvalStatus || profileData.approvalStatus || 'approved');
           setProfileImagePreview(professionalData?.userId?.profileImage || profileData?.profileImage || '');
+          setProfessionalRecordId(String(professionalData?._id || ''));
         } else if (professionalResponse.status !== 404) {
           setError('Unable to load existing professional profile details.');
         }
@@ -592,6 +602,7 @@ function ProfessionalDashboard() {
       formData.append('subCategory', profileForm.subCategory);
       formData.append('subSubCategory', profileForm.subSubCategory || '');
       formData.append('serviceType', profileForm.serviceType || '');
+      formData.append('currentCity', profileForm.currentCity || '');
       formData.append('bio', profileForm.bio);
       formData.append('experience', String(Number(profileForm.experience) || 0));
       formData.append('availability', JSON.stringify(profileForm.availability));
@@ -630,6 +641,7 @@ function ProfessionalDashboard() {
         subCategory: data?.subCategory || '',
         subSubCategory: data?.subSubCategory || '',
         serviceType: data?.serviceType || '',
+        currentCity: data?.currentCity || '',
         bio: data?.bio || '',
         experience: String(data?.experience ?? ''),
         availability: Array.isArray(data?.availability) ? data.availability : [],
@@ -657,6 +669,97 @@ function ProfessionalDashboard() {
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const handleAudioCall = async (bookingId) => {
+    try {
+      setError('');
+      setCallingBookingId(bookingId);
+      await startBookingAudioCall(bookingId);
+    } catch (callError) {
+      setError(callError.message || 'Unable to start booking audio call.');
+    } finally {
+      setCallingBookingId('');
+    }
+  };
+
+  const handleKycCallToAdmin = async () => {
+    if (!professionalRecordId) {
+      setError('Professional profile is not ready for KYC call yet.');
+      return;
+    }
+
+    try {
+      setError('');
+      setIsKycCalling(true);
+      await startKycVideoCall(professionalRecordId);
+    } catch (callError) {
+      setError(callError.message || 'Unable to start KYC video call.');
+    } finally {
+      setIsKycCalling(false);
+    }
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Your browser does not support location detection.');
+      return;
+    }
+
+    setIsResolvingCurrentCity(true);
+    setError('');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=en&lat=${latitude}&lon=${longitude}`,
+            {
+              headers: {
+                Accept: 'application/json',
+                'Accept-Language': 'en',
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error('Failed to detect your current city');
+          }
+
+          const data = await response.json();
+          const cityFromGeo =
+            data?.address?.city ||
+            data?.address?.town ||
+            data?.address?.village ||
+            data?.address?.county ||
+            data?.address?.state ||
+            '';
+
+          if (!cityFromGeo) {
+            throw new Error('Could not detect a city from your current location');
+          }
+
+          setProfileForm((prev) => ({
+            ...prev,
+            currentCity: cityFromGeo,
+          }));
+        } catch (locationError) {
+          setError(locationError.message || 'Unable to detect your current city');
+        } finally {
+          setIsResolvingCurrentCity(false);
+        }
+      },
+      (locationError) => {
+        setIsResolvingCurrentCity(false);
+        setError(locationError.message || 'Please allow location permission to use current location');
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 5 * 60 * 1000,
+      }
+    );
   };
 
   if (loading) {
@@ -689,6 +792,17 @@ function ProfessionalDashboard() {
           <p className="pro-kicker">Professional Workspace</p>
           <h1>Welcome, {profile.name}</h1>
           <p>Manage your service requests, update status, and track completed earnings.</p>
+          {approvalStatus === 'pending' && (
+            <button
+              type="button"
+              className="pro-edit-btn"
+              onClick={handleKycCallToAdmin}
+              disabled={isCallBusy || isKycCalling}
+              style={{ marginTop: 12 }}
+            >
+              {isKycCalling ? 'Connecting KYC Call...' : 'Start Video KYC Call With Admin'}
+            </button>
+          )}
         </div>
         <div className={`pro-approval ${approvalStatus}`}>
           Status: {approvalStatus}
@@ -798,6 +912,22 @@ function ProfessionalDashboard() {
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
+              </label>
+
+              <label>
+                Current Working City
+                <div className="current-city-row">
+                  <input
+                    type="text"
+                    name="currentCity"
+                    value={profileForm.currentCity}
+                    onChange={handleProfileFieldChange}
+                    placeholder="Example: Delhi"
+                  />
+                  <button type="button" className="current-city-btn" onClick={handleUseCurrentLocation}>
+                    {isResolvingCurrentCity ? 'Detecting...' : 'Use My Current Location'}
+                  </button>
+                </div>
               </label>
 
               <label>
@@ -916,6 +1046,7 @@ function ProfessionalDashboard() {
             <p><strong>Sub Category:</strong> {profileForm.subCategory || 'Not set'}</p>
             <p><strong>Sub-Subcategory:</strong> {profileForm.subSubCategory || 'Not set'}</p>
             <p><strong>Next Subcategory:</strong> {profileForm.serviceType || 'Not set'}</p>
+            <p><strong>Current Working City:</strong> {profileForm.currentCity || 'Not set'}</p>
             <p><strong>Experience:</strong> {profileForm.experience || '0'} years</p>
             <p><strong>Custom Service Prices:</strong> {profileForm.servicePricing.length}</p>
           </div>
@@ -955,6 +1086,15 @@ function ProfessionalDashboard() {
                 <p><strong>Location:</strong> {job?.serviceAddress?.city || profile.city || 'N/A'}</p>
 
                 <div className="job-actions">
+                  {['confirmed', 'in-progress'].includes(job.status) && (
+                    <button
+                      type="button"
+                      onClick={() => handleAudioCall(job._id)}
+                      disabled={isCallBusy || callingBookingId === job._id}
+                    >
+                      {callingBookingId === job._id ? 'Connecting Call...' : 'Audio Call'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => updateStatus(job._id, 'confirmed')}

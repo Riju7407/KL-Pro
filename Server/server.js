@@ -72,6 +72,7 @@ app.use('/api/professionals', require('./routes/professionals'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/reviews', require('./routes/reviews'));
+app.use('/api/calls', require('./routes/calls'));
 
 // Health Check
 app.get('/', (req, res) => {

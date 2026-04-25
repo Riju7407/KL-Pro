@@ -19,6 +19,7 @@ function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [activeTab, setActiveTab] = useState('overview');
+  const [isDetectingCity, setIsDetectingCity] = useState(false);
   const [savedProfessionals, setSavedProfessionals] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('savedProfessionals') || '[]');
@@ -82,10 +83,6 @@ function Profile() {
       }
 
       const data = await profileResponse.json();
-      if (data?.userType === 'professional') {
-        navigate('/professional/dashboard');
-        return;
-      }
       setProfile(data);
       setEditData(data);
 
@@ -167,6 +164,69 @@ function Profile() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Your browser does not support location detection.');
+      return;
+    }
+
+    setIsDetectingCity(true);
+    setError('');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=en&lat=${latitude}&lon=${longitude}`,
+            {
+              headers: {
+                Accept: 'application/json',
+                'Accept-Language': 'en',
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error('Failed to detect your current city');
+          }
+
+          const data = await response.json();
+          const cityFromGeo =
+            data?.address?.city ||
+            data?.address?.town ||
+            data?.address?.village ||
+            data?.address?.county ||
+            data?.address?.state ||
+            '';
+
+          if (!cityFromGeo) {
+            throw new Error('Could not detect city from your current location');
+          }
+
+          setEditData((prev) => ({
+            ...prev,
+            city: cityFromGeo,
+          }));
+          setSuccessMessage('Current city detected successfully. Save changes to update your profile.');
+        } catch (locationError) {
+          setError(locationError.message || 'Unable to detect your current city');
+        } finally {
+          setIsDetectingCity(false);
+        }
+      },
+      (locationError) => {
+        setIsDetectingCity(false);
+        setError(locationError.message || 'Please allow location permission to use current location');
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 5 * 60 * 1000,
+      }
+    );
   };
 
   const handleSaveProfile = async () => {
@@ -460,12 +520,22 @@ function Profile() {
               </div>
               <div className="form-group">
                 <label>City</label>
-                <input
-                  type="text"
-                  name="city"
-                  value={editData.city || ''}
-                  onChange={handleEditChange}
-                />
+                <div className="city-input-row">
+                  <input
+                    type="text"
+                    name="city"
+                    value={editData.city || ''}
+                    onChange={handleEditChange}
+                  />
+                  <button
+                    type="button"
+                    className="btn-detect-city"
+                    onClick={handleUseCurrentLocation}
+                    disabled={isDetectingCity}
+                  >
+                    {isDetectingCity ? 'Detecting...' : 'Use My Current Location'}
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label>Address</label>

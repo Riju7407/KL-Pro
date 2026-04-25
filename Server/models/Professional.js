@@ -32,6 +32,11 @@ const professionalSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    currentCity: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     panCardNumber: {
       type: String,
       required: true,

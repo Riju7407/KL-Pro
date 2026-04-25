@@ -17,45 +17,48 @@ import ProfessionalDashboard from './pages/ProfessionalDashboard';
 import Products from './pages/Products';
 import ProductDetails from './pages/ProductDetails';
 import Cart from './pages/Cart';
+import { CallProvider } from './context/CallContext';
 
 function App() {
   return (
     <Router>
-      <div className="App">
-        <Routes>
-          {/* Admin Routes */}
-          <Route path="/admin/login" element={<Navigate to="/login" replace />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <CallProvider>
+        <div className="App">
+          <Routes>
+            {/* Admin Routes */}
+            <Route path="/admin/login" element={<Navigate to="/login" replace />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
-          {/* User Routes */}
-          <Route
-            path="/*"
-            element={
-              <>
-                <Header />
-                <main className="main-content">
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/services" element={<Services />} />
-                    <Route path="/products" element={<Products />} />
-                    <Route path="/product/:id" element={<ProductDetails />} />
-                    <Route path="/cart" element={<Cart />} />
-                    <Route path="/professionals" element={<Professionals />} />
-                    <Route path="/professionals/:id" element={<ProfessionalDetails />} />
-                    <Route path="/bookings" element={<Bookings />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/professional/dashboard" element={<ProfessionalDashboard />} />
-                  </Routes>
-                </main>
-                <Footer />
-                <FloatingToggle />
-                <ProfessionalRequestAlert />
-              </>
-            }
-          />
-        </Routes>
-      </div>
+            {/* User Routes */}
+            <Route
+              path="/*"
+              element={
+                <>
+                  <Header />
+                  <main className="main-content">
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/services" element={<Services />} />
+                      <Route path="/products" element={<Products />} />
+                      <Route path="/product/:id" element={<ProductDetails />} />
+                      <Route path="/cart" element={<Cart />} />
+                      <Route path="/professionals" element={<Professionals />} />
+                      <Route path="/professionals/:id" element={<ProfessionalDetails />} />
+                      <Route path="/bookings" element={<Bookings />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/professional/dashboard" element={<ProfessionalDashboard />} />
+                    </Routes>
+                  </main>
+                  <Footer />
+                  <FloatingToggle />
+                  <ProfessionalRequestAlert />
+                </>
+              }
+            />
+          </Routes>
+        </div>
+      </CallProvider>
     </Router>
   );
 }

@@ -52,6 +52,7 @@ router.post(
       aadhaarCardNumber,
       experience,
       bio,
+      currentCity,
     } = req.body;
 
     if (!name || !email || !password) {
@@ -143,6 +144,7 @@ router.post(
         subCategory: professionalSubCategory,
         subSubCategory: professionalSubSubCategory || '',
         serviceType: professionalServiceType || '',
+        currentCity: currentCity || city || '',
         panCardNumber: String(panCardNumber).trim().toUpperCase(),
         panCardImageUrl,
         aadhaarCardNumber: String(aadhaarCardNumber).trim(),
@@ -193,7 +195,7 @@ router.post(
 // Login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, currentCity } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
@@ -256,6 +258,12 @@ router.post('/login', async (req, res) => {
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
       return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Update current city for professionals
+    if (user.userType === 'professional' && currentCity) {
+      user.currentCity = currentCity;
+      await user.save();
     }
 
     // Create JWT token

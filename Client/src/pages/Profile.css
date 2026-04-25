@@ -681,6 +681,29 @@
   background: #f1f5f8;
 }
 
+.city-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-detect-city {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 11px;
+  background: linear-gradient(120deg, #0a7ea4 0%, #076482 100%);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-detect-city:disabled {
+  opacity: 0.72;
+  cursor: progress;
+}
+
 .edit-actions {
   grid-column: 1 / -1;
   display: flex;
@@ -868,6 +891,14 @@
   .profile-details,
   .profile-edit-form {
     grid-template-columns: 1fr;
+  }
+
+  .city-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-detect-city {
+    width: 100%;
   }
 
   .quick-actions-grid {

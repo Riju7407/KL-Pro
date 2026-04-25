@@ -41,6 +41,20 @@ const normalizeCityName = (value) => {
   return raw;
 };
 
+const getProfessionalLocationCandidates = (professional) => {
+  const candidates = [
+    professional?.currentCity,
+    professional?.location,
+    professional?.userId?.city,
+    professional?.userId?.address,
+    professional?.userId?.profileCity,
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+
+  return [...new Set(candidates)];
+};
+
 const getInitials = (name) =>
   String(name || 'Pro')
     .split(' ')
@@ -224,7 +238,8 @@ const normalizeProfessional = (professional, servicePriceMap, index) => {
     rating,
     reviews: reviewsCount,
     availabilityText: buildAvailabilityText(professional?.availability),
-    location: professional?.userId?.city || 'Lucknow',
+    location: getProfessionalLocationCandidates(professional)[0] || 'Lucknow',
+    locationCandidates: getProfessionalLocationCandidates(professional),
     experienceYears,
     completedBookings: professional?.completedBookings || reviewsCount * 2,
     startingPrice: servicePrices.length ? Math.min(...servicePrices) : 499,
@@ -241,6 +256,7 @@ const normalizeProfessional = (professional, servicePriceMap, index) => {
 
 function Professionals() {
   const navigate = useNavigate();
+  const [allProfessionals, setAllProfessionals] = useState(FALLBACK_PROFESSIONALS);
   const [professionals, setProfessionals] = useState(FALLBACK_PROFESSIONALS);
   const [detectedCity, setDetectedCity] = useState('');
   const [locating, setLocating] = useState(true);
@@ -281,15 +297,15 @@ function Professionals() {
       );
 
       if (!apiProfessionals.length) {
-        setProfessionals(FALLBACK_PROFESSIONALS);
+        setAllProfessionals(FALLBACK_PROFESSIONALS);
         return;
       }
 
-      setProfessionals(apiProfessionals.map((item, index) => normalizeProfessional(item, servicePriceMap, index)));
+      setAllProfessionals(apiProfessionals.map((item, index) => normalizeProfessional(item, servicePriceMap, index)));
     } catch (fetchError) {
       console.error('Failed to fetch professionals:', fetchError);
       setError('Showing curated experts while we reconnect to live inventory.');
-      setProfessionals(FALLBACK_PROFESSIONALS);
+      setAllProfessionals(FALLBACK_PROFESSIONALS);
     } finally {
       setLoading(false);
     }
@@ -353,6 +369,19 @@ function Professionals() {
   useEffect(() => {
     loadProfessionals();
   }, [loadProfessionals]);
+
+  useEffect(() => {
+    if (detectedCity && allProfessionals.length > 0) {
+      const normalizedDetectedCity = normalizeCityName(detectedCity);
+      const filtered = allProfessionals.filter((pro) => {
+        const proCities = getProfessionalLocationCandidates(pro);
+        return proCities.some((city) => normalizeCityName(city) === normalizedDetectedCity);
+      });
+      setProfessionals(filtered.length > 0 ? filtered : allProfessionals); // fallback to all if none in city
+    } else {
+      setProfessionals(allProfessionals);
+    }
+  }, [detectedCity, allProfessionals]);
 
   useEffect(() => {
     const token = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
@@ -492,11 +521,14 @@ function Professionals() {
       const priceMatch = professional.startingPrice >= minPrice && professional.startingPrice <= maxPrice;
       const ratingMatch = professional.rating >= normalizedRating;
       const normalizedDetectedCity = normalizeCityName(detectedCity);
-      const normalizedProfessionalCity = normalizeCityName(professional.location);
+      const professionalCities = (professional.locationCandidates || [professional.location])
+        .map((city) => normalizeCityName(city))
+        .filter(Boolean);
       const locationMatch =
         !normalizedDetectedCity ||
-        normalizedProfessionalCity.includes(normalizedDetectedCity) ||
-        normalizedDetectedCity.includes(normalizedProfessionalCity);
+        professionalCities.some(
+          (city) => city.includes(normalizedDetectedCity) || normalizedDetectedCity.includes(city)
+        );
       const onlineMatch = professional.isOnline;
 
       return textMatch && specializationMatch && priceMatch && ratingMatch && locationMatch && onlineMatch;
