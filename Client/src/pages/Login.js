@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY, getHierarchyOptions } from '../config/serviceHierarchy';
-import { disconnectSocket } from '../api/socket';
 import './Login.css';
 
 function Login() {
@@ -54,32 +53,6 @@ function Login() {
       }, () => {
         resolve('');
       });
-    });
-  };
-
-  const handleUseCurrentLocation = async () => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
-      return;
-    }
-    setError('');
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const { latitude, longitude } = position.coords;
-      try {
-        // Use a free reverse geocoding API (OpenStreetMap Nominatim)
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
-        const data = await response.json();
-        const city = data.address.city || data.address.town || data.address.village || data.address.state_district || data.address.state || '';
-        if (city) {
-          setFormData((prev) => ({ ...prev, city }));
-        } else {
-          setError('Could not detect city from your location');
-        }
-      } catch (err) {
-        setError('Failed to fetch city from location');
-      }
-    }, () => {
-      setError('Unable to retrieve your location');
     });
   };
 
@@ -276,7 +249,6 @@ function Login() {
       }
 
       if (isLogin) {
-        const userType = data?.user?.userType;
         // Login successful, navigate to home
         navigate('/');
       }
