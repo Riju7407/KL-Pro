@@ -12,6 +12,7 @@ import ProfessionalDetails from './pages/ProfessionalDetails';
 import Bookings from './pages/Bookings';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import ProfessionalDashboard from './pages/ProfessionalDashboard';
 import Products from './pages/Products';
@@ -26,7 +27,7 @@ function App() {
         <div className="App">
           <Routes>
             {/* Admin Routes */}
-            <Route path="/admin/login" element={<Navigate to="/login" replace />} />
+<Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
             {/* User Routes */}

@@ -30,6 +30,7 @@ function Login() {
     bio: ''
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -133,6 +134,7 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
@@ -143,9 +145,14 @@ function Login() {
       }
 
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
+      let requestUrl = `${API_BASE_URL}${endpoint}`;
       const payload = isLogin 
         ? { email: formData.email, password: formData.password }
         : null;
+
+      if (isLogin && loginAs === 'admin') {
+        requestUrl = `${API_BASE_URL}/admin/login`;
+      }
 
       let currentCity = '';
       if (isLogin) {
@@ -156,7 +163,7 @@ function Login() {
       let response;
       let data;
       if (isLogin) {
-        response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        response = await fetch(requestUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -167,6 +174,7 @@ function Login() {
         data = await response.json();
 
         if (!response.ok) {
+          console.error('Login failed response:', data);
           setError(data.message || 'Login failed');
           return;
         }
@@ -249,8 +257,19 @@ function Login() {
       }
 
       if (isLogin) {
-        // Login successful, navigate to home
-        navigate('/');
+        if (loginAs === 'admin' || data.admin) {
+          localStorage.setItem('adminToken', data.token);
+          localStorage.setItem('adminEmail', data.admin?.email || data.user?.email || formData.email);
+          setSuccess('Login successful! Redirecting to admin dashboard...');
+          setTimeout(() => navigate('/admin/dashboard'), 600);
+          return;
+        }
+
+        localStorage.setItem('userToken', data.token);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setSuccess('Login successful! Redirecting...');
+        setTimeout(() => navigate('/'), 600);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -279,6 +298,7 @@ function Login() {
         </div>
 
         {error && <div className="error-message">{error}</div>}
+        {success && <div className="success-message">{success}</div>}
 
         <form onSubmit={handleSubmit} className="login-form">
           {isLogin && (

@@ -7,6 +7,7 @@ function AdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -27,6 +28,7 @@ function AdminLogin() {
       const data = await response.json();
 
       if (!response.ok) {
+        console.error('Admin login failed response:', data);
         setError(data.message || 'Login failed');
         setLoading(false);
         return;
@@ -35,9 +37,8 @@ function AdminLogin() {
       // Store token in localStorage
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminEmail', data.admin.email);
-
-      // Redirect to admin dashboard
-      navigate('/admin/dashboard');
+      setSuccess('Login successful! Redirecting to admin dashboard...');
+      setTimeout(() => navigate('/admin/dashboard'), 600);
     } catch (err) {
       setError(err.message || 'Server error. Please try again.');
     } finally {
@@ -51,6 +52,7 @@ function AdminLogin() {
         <h1 className="admin-login-title">Admin Login</h1>
         
         {error && <div className="admin-error-message">{error}</div>}
+        {success && <div className="admin-success-message">{success}</div>}
 
         <form onSubmit={handleSubmit} className="admin-login-form">
           <div className="form-group">

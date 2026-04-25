@@ -55,14 +55,16 @@ router.post(
       currentCity,
     } = req.body;
 
-    if (!name || !email || !password) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+
+    if (!name || !normalizedEmail || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
     }
 
     const normalizedUserType = userType || 'customer';
 
     // Check if user exists
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email: normalizedEmail });
     if (user) {
       return res.status(400).json({ message: 'User already exists' });
     }
@@ -74,7 +76,7 @@ router.post(
     // Create user
     user = new User({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       city,
       phone,
@@ -237,7 +239,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Check if user exists
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
