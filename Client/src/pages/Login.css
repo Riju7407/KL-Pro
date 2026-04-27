@@ -92,6 +92,12 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.form-group input:focus::placeholder,
+.form-group textarea:focus::placeholder {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .form-group input:disabled,
 .form-group select:disabled,
 .form-group textarea:disabled {

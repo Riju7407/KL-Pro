@@ -1,11 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import './Products.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { addToCart } from '../utils/cart';
+import { PRODUCT_CATEGORY_HIERARCHY } from '../config/productCategoryHierarchy';
 
 function Products() {
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [hoveredCategory, setHoveredCategory] = useState(null);
+  const [pinnedCategory, setPinnedCategory] = useState(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState('all');
+  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState('all');
+  const [selectedLevel4, setSelectedLevel4] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
   const [productsData, setProductsData] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -115,36 +121,154 @@ function Products() {
     navigate({ pathname: '/products', search: params.toString() ? `?${params.toString()}` : '' }, { replace: true });
   };
 
-  const categoryIcons = useMemo(
-    () => ({
-      'Branded Uniform For KLPro Professional': '🧥',
-      'Beauty & Salon Products': '💄',
-      'Cleaning Supplies & Equipment': '🧽',
-      'Repair & Maintenance Tools': '🛠️',
-      'Grooming Equipment': '✂️',
-      'Personal Protective Equipment': '🦺',
-      'Specialized Machines & Equipment': '⚙️',
-    }),
-    []
-  );
+  // Removed categoryIcons mapping (no icons)
 
   const mergedCategories = Array.from(
     new Set(['all', ...categories, ...productsData.map((product) => product.category).filter(Boolean)])
   );
 
   const tabs = [
-    { id: 'all', name: 'All Products', icon: '🔍' },
+    { id: 'all', name: 'All Products' },
     ...mergedCategories
       .filter((category) => category !== 'all')
       .map((category) => ({
         id: category,
         name: category,
-        icon: categoryIcons[category] || '⭐',
       })),
   ];
 
+  const getProductHierarchyForCategory = (category) => {
+    if (!category || category === 'all') return [];
+
+    const configured = PRODUCT_CATEGORY_HIERARCHY[category] || {};
+    const tree = new Map();
+
+    Object.entries(configured).forEach(([subCategory, subSubObject]) => {
+      const subSubMap = new Map();
+      Object.entries(subSubObject || {}).forEach(([subSubCategory, subSubSubValues]) => {
+        subSubMap.set(subSubCategory, new Set(subSubSubValues || []));
+      });
+      tree.set(subCategory, subSubMap);
+    });
+
+    productsData
+      .filter((product) => product.category === category)
+      .forEach((product) => {
+        const subCategory = product.subCategory || 'General';
+        const subSubCategory = product.subSubCategory || 'General';
+        const level4 = product.size || '';
+
+        if (!tree.has(subCategory)) {
+          tree.set(subCategory, new Map());
+        }
+
+        const subSubMap = tree.get(subCategory);
+        if (!subSubMap.has(subSubCategory)) {
+          subSubMap.set(subSubCategory, new Set());
+        }
+
+        if (level4) {
+          subSubMap.get(subSubCategory).add(level4);
+        }
+      });
+
+    return Array.from(tree.entries()).map(([subCategory, subSubMap]) => ({
+      subCategory,
+      subSubCategories: Array.from(subSubMap.entries()).map(([subSubCategory, level4Set]) => ({
+        subSubCategory,
+        level4Values: Array.from(level4Set),
+      })),
+    }));
+  };
+
+  const activePanelCategory = pinnedCategory || hoveredCategory;
+  const hoveredProductHierarchy = getProductHierarchyForCategory(activePanelCategory);
+
+  const applyCategoryFilter = (categoryId) => {
+    setSelectedCategory(categoryId);
+    setSelectedSubCategory('all');
+    setSelectedSubSubCategory('all');
+    setSelectedLevel4('all');
+    updateQuery({ selectedCategory: categoryId });
+  };
+
+  const handleCategoryTabClick = (categoryId) => {
+    applyCategoryFilter(categoryId);
+    if (categoryId === 'all') {
+      setPinnedCategory(null);
+      setHoveredCategory(null);
+      return;
+    }
+    setPinnedCategory((prev) => (prev === categoryId ? null : categoryId));
+    setHoveredCategory(categoryId);
+  };
+
+  const handleSubCategorySelect = (category, subCategory) => {
+    setSelectedCategory(category);
+    setSelectedSubCategory(subCategory);
+    setSelectedSubSubCategory('all');
+    setSelectedLevel4('all');
+    updateQuery({ selectedCategory: category });
+  };
+
+  const handleSubSubCategorySelect = (category, subCategory, subSubCategory) => {
+    setSelectedCategory(category);
+    setSelectedSubCategory(subCategory);
+    setSelectedSubSubCategory(subSubCategory);
+    setSelectedLevel4('all');
+    updateQuery({ selectedCategory: category });
+  };
+
+  const handleLevel4Select = (category, subCategory, subSubCategory, level4) => {
+    setSelectedCategory(category);
+    setSelectedSubCategory(subCategory);
+    setSelectedSubSubCategory(subSubCategory);
+    setSelectedLevel4(level4);
+    updateQuery({ selectedCategory: category });
+  };
+
+  const activeProductPath = [
+    selectedCategory !== 'all' ? { level: 'category', label: selectedCategory } : null,
+    selectedSubCategory !== 'all' ? { level: 'subCategory', label: selectedSubCategory } : null,
+    selectedSubSubCategory !== 'all' ? { level: 'subSubCategory', label: selectedSubSubCategory } : null,
+    selectedLevel4 !== 'all' ? { level: 'level4', label: selectedLevel4 } : null,
+  ].filter(Boolean);
+
+  const clearProductPathFromLevel = (level) => {
+    if (level === 'category') {
+      setSelectedCategory('all');
+      setSelectedSubCategory('all');
+      setSelectedSubSubCategory('all');
+      setSelectedLevel4('all');
+      setPinnedCategory(null);
+      setHoveredCategory(null);
+      updateQuery({ selectedCategory: 'all' });
+      return;
+    }
+
+    if (level === 'subCategory') {
+      setSelectedSubCategory('all');
+      setSelectedSubSubCategory('all');
+      setSelectedLevel4('all');
+      return;
+    }
+
+    if (level === 'subSubCategory') {
+      setSelectedSubSubCategory('all');
+      setSelectedLevel4('all');
+      return;
+    }
+
+    if (level === 'level4') {
+      setSelectedLevel4('all');
+    }
+  };
+
   const filtered = productsData.filter((product) => {
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    const matchesSubCategory = selectedSubCategory === 'all' || product.subCategory === selectedSubCategory;
+    const matchesSubSubCategory = selectedSubSubCategory === 'all' || product.subSubCategory === selectedSubSubCategory;
+    const matchesLevel4 = selectedLevel4 === 'all' || product.size === selectedLevel4;
     const search = searchTerm.trim().toLowerCase();
     const matchesSearch =
       !search ||
@@ -152,7 +276,7 @@ function Products() {
       product.description.toLowerCase().includes(search) ||
       product.category.toLowerCase().includes(search);
 
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesSubCategory && matchesSubSubCategory && matchesLevel4 && matchesSearch;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -179,9 +303,9 @@ function Products() {
 
   return (
     <div className="products-page">
-      <section className="products-hero">
-        <div className="products-hero-bg" style={{ backgroundImage: "url('/kl2.png')" }} />
-      </section>
+      <div className="products-banner">
+        <img src="/product.png" alt="Products Banner" />
+      </div>
 
       <div className="container">
         {error && <div className="error-message">{error}</div>}
@@ -195,6 +319,25 @@ function Products() {
                 <h2>Choose Your Product</h2>
                 <p>{sorted.length} results</p>
               </div>
+
+              {activeProductPath.length > 0 && (
+                <div className="active-filter-path" aria-label="Active product filters">
+                  {activeProductPath.map((item, index) => (
+                    <React.Fragment key={`${item.level}-${item.label}`}>
+                      {index > 0 && <span className="path-separator">&gt;</span>}
+                      <button
+                        type="button"
+                        className="path-chip"
+                        onClick={() => clearProductPathFromLevel(item.level)}
+                        title={`Clear ${item.label} and deeper levels`}
+                      >
+                        {item.label}
+                        <span className="path-chip-close">x</span>
+                      </button>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
 
               <div className="search-row">
                 <div className="search-field">
@@ -229,21 +372,101 @@ function Products() {
                 </div>
               </div>
 
-              <div className="category-tabs" role="tablist" aria-label="Product categories">
-                {tabs.map((category) => (
-                  <button
-                    key={category.id}
-                    className={`category-tab ${selectedCategory === category.id ? 'active' : ''}`}
-                    onClick={() => {
-                      setSelectedCategory(category.id);
-                      updateQuery({ selectedCategory: category.id });
-                    }}
-                    type="button"
-                  >
-                    <span className="tab-icon">{category.icon}</span>
-                    <span className="tab-name">{category.name}</span>
-                  </button>
-                ))}
+              <div
+                className="category-hover-wrap"
+                onMouseLeave={() => {
+                  if (!pinnedCategory) {
+                    setHoveredCategory(null);
+                  }
+                }}
+              >
+                <div className="category-tabs" role="tablist" aria-label="Product categories">
+                  {tabs.map((category) => (
+                    <button
+                      key={category.id}
+                      className={`category-tab ${selectedCategory === category.id ? 'active' : ''}`}
+                      onMouseEnter={() => {
+                        if (!pinnedCategory) {
+                          setHoveredCategory(category.id === 'all' ? null : category.id);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (!pinnedCategory) {
+                          setHoveredCategory(category.id === 'all' ? null : category.id);
+                        }
+                      }}
+                      onClick={() => handleCategoryTabClick(category.id)}
+                      type="button"
+                    >
+                      <span className="tab-name">{category.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {activePanelCategory && hoveredProductHierarchy.length > 0 && (
+                  <div className="products-hover-panel" role="region" aria-label={`${activePanelCategory} hierarchy`}>
+                    <div className="products-hover-panel-head">{activePanelCategory}</div>
+                    <div className="products-hover-columns">
+                      {hoveredProductHierarchy.map((node) => (
+                        <article key={node.subCategory} className="products-hover-col">
+                          <h4>
+                            <button
+                              type="button"
+                              className="hover-action-btn"
+                              onClick={() => handleSubCategorySelect(activePanelCategory, node.subCategory)}
+                            >
+                              {node.subCategory}
+                            </button>
+                          </h4>
+                          {node.subSubCategories.length > 0 ? (
+                            <ul>
+                              {node.subSubCategories.map((leaf) => (
+                                <li key={`${node.subCategory}-${leaf.subSubCategory}`}>
+                                  <button
+                                    type="button"
+                                    className="hover-leaf-name hover-action-btn"
+                                    onClick={() =>
+                                      handleSubSubCategorySelect(
+                                        activePanelCategory,
+                                        node.subCategory,
+                                        leaf.subSubCategory
+                                      )
+                                    }
+                                  >
+                                    {leaf.subSubCategory}
+                                  </button>
+                                  {leaf.level4Values.length > 0 && (
+                                    <p>
+                                      {leaf.level4Values.map((level4) => (
+                                        <button
+                                          key={`${leaf.subSubCategory}-${level4}`}
+                                          type="button"
+                                          className="hover-mini-chip"
+                                          onClick={() =>
+                                            handleLevel4Select(
+                                              activePanelCategory,
+                                              node.subCategory,
+                                              leaf.subSubCategory,
+                                              level4
+                                            )
+                                          }
+                                        >
+                                          {level4}
+                                        </button>
+                                      ))}
+                                    </p>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="hover-empty">No subcategories</p>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 

@@ -154,10 +154,21 @@ function Bookings() {
       const nextDate = draftData.scheduledDate || current.scheduledDate;
       const nextTime = draftData.scheduledTime || current.scheduledTime;
 
-      const matchedService = services.find((service) => {
-        const haystack = `${service.name} ${service.category}`.toLowerCase();
-        return haystack.includes((draftData.professionalName || '').toLowerCase());
-      });
+      const serviceById = draftData.serviceId
+        ? services.find((service) => String(service._id) === String(draftData.serviceId))
+        : null;
+
+      const serviceByName = draftData.serviceName
+        ? services.find((service) => String(service.name || '').toLowerCase() === String(draftData.serviceName).toLowerCase())
+        : null;
+
+      const matchedService =
+        serviceById ||
+        serviceByName ||
+        services.find((service) => {
+          const haystack = `${service.name} ${service.category}`.toLowerCase();
+          return haystack.includes((draftData.professionalName || '').toLowerCase());
+        });
 
       const fallbackService = services[0];
 

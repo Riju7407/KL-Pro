@@ -66,10 +66,11 @@ function Footer() {
             <div className="footer-section">
               <h3>Support & Info</h3>
               <ul className="footer-links">
-                <li><button className="footer-link-btn">Help Center</button></li>
-                <li><button className="footer-link-btn">FAQs</button></li>
-                <li><button className="footer-link-btn">Privacy Policy</button></li>
-                <li><button className="footer-link-btn">Terms & Conditions</button></li>
+                <li><a href="/help-center" className="footer-link-btn">Help Center</a></li>
+                <li><a href="/faqs" className="footer-link-btn">FAQs</a></li>
+                <li><a href="/privacy-policy" className="footer-link-btn">Privacy Policy</a></li>
+                <li><a href="/terms-conditions" className="footer-link-btn">Terms & Conditions</a></li>
+                <li><a href="/contact" className="footer-link-btn">Contact</a></li>
               </ul>
             </div>
 
@@ -77,18 +78,29 @@ function Footer() {
             <div className="footer-section">
               <h3>Contact & Follow</h3>
               <div className="contact-info">
-                <p>📧 support@klservices.com</p>
-                <p>📱 +91 XXXXXXXXXX</p>
+                <p>📧 info@klproind.com</p>
+                <p>📱 +91 9711379156</p>
               </div>
               <div className="social-links-wrapper">
                 <div className={`social-links ${showSocial ? 'show' : 'hide'}`}>
-                <button className="social-icon facebook" title="Facebook">f</button>
-                <button className="social-icon instagram" title="Instagram">📷</button>
-                <button className="social-icon twitter" title="Twitter">𝕏</button>
-                <button className="social-icon linkedin" title="LinkedIn">in</button>
+                  <a href="https://www.facebook.com/share/18mU5vNttH/" target="_blank" rel="noopener noreferrer" className="social-icon facebook" title="Facebook">
+                    <span>f</span>
+                  </a>
+                  <a href="https://www.instagram.com/klprocompany/" target="_blank" rel="noopener noreferrer" className="social-icon instagram" title="Instagram">
+                    <span>📷</span>
+                  </a>
+                  <a href="https://x.com/KLProCompany" target="_blank" rel="noopener noreferrer" className="social-icon twitter" title="Twitter">
+                    <span>𝕏</span>
+                  </a>
+                  <a href="https://www.linkedin.com/in/kl-pro-682849404?utm_source=share_via&utm_content=profile&utm_medium=member_android" target="_blank" rel="noopener noreferrer" className="social-icon linkedin" title="LinkedIn">
+                    <span>in</span>
+                  </a>
+                  <a href="https://WA.me/919711379156" target="_blank" rel="noopener noreferrer" className="social-icon whatsapp" title="WhatsApp">
+                    <span>💬</span>
+                  </a>
                 </div>
                 {showToggle && (
-                  <button 
+                  <button
                     className="social-toggle"
                     onClick={() => setShowSocial(!showSocial)}
                     title={showSocial ? 'Hide social links' : 'Show social links'}

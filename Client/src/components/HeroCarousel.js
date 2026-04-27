@@ -5,12 +5,12 @@ function HeroCarousel() {
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const images = [
-    '/c2.png',
-    '/HS2.png',
-    '/M2.png',
-    '/MG2.png',
-    '/SS2.png',
-    '/SS3.png'
+    '/womensalun.png',
+    '/home.png',
+    '/helpinhand.png',
+    '/electric.png',
+    '/cleaning.png',
+    '/acrepair.png'
   ];
 
   // Auto-scroll carousel every 4 seconds

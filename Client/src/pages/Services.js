@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Services.css';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY, getHierarchyOptions, getServiceTypeOptions } from '../config/serviceHierarchy';
 
 function Services() {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [hoveredCategory, setHoveredCategory] = useState(null);
+  const [pinnedCategory, setPinnedCategory] = useState(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState('all');
   const [selectedSubSubCategory, setSelectedSubSubCategory] = useState('all');
   const [selectedServiceType, setSelectedServiceType] = useState('all');
@@ -59,29 +63,105 @@ function Services() {
     }
   };
 
-  const categoryIcons = {
-    HelpingHand: '🤝',
-    "Women's Salon & Spa": '💄',
-    "Men's Salon & Massage": '💈',
-    'Cleaning & Pest Control': '🧽',
-    'AC & Appliance Repair': '🛠️',
-    'Electrician, Plumber, Carpenter & Mason': '🔧',
-    Repairs: '🔧',
-    'Home Decoration': '🎉',
-  };
+  // Removed categoryIcons mapping (no icons)
 
   const dataCategories = Array.from(new Set(servicesData.map((service) => service.category).filter(Boolean)));
   const hierarchyCategories = Object.keys(SERVICE_HIERARCHY);
   const mergedCategories = Array.from(new Set([...hierarchyCategories, ...dataCategories]));
 
   const categories = [
-    { id: 'all', name: 'All Services', icon: '🔍' },
+    { id: 'all', name: 'All Services' },
     ...mergedCategories.map((category) => ({
       id: category,
       name: category,
-      icon: categoryIcons[category] || '⭐',
     })),
   ];
+
+  const getServiceHierarchyForCategory = (category) => {
+    if (!category || category === 'all') return [];
+
+    const configured = SERVICE_HIERARCHY[category] || {};
+    const tree = new Map();
+
+    Object.entries(configured).forEach(([subCategory, subSubCategories]) => {
+      const subSubMap = new Map();
+      (subSubCategories || []).forEach((subSubCategory) => {
+        subSubMap.set(subSubCategory, new Set());
+      });
+      tree.set(subCategory, subSubMap);
+    });
+
+    servicesData
+      .filter((service) => service.category === category)
+      .forEach((service) => {
+        const subCategory = service.subCategory || 'General';
+        const subSubCategory = service.subSubCategory || 'General';
+        const serviceType = service.serviceType || '';
+
+        if (!tree.has(subCategory)) {
+          tree.set(subCategory, new Map());
+        }
+
+        const subSubMap = tree.get(subCategory);
+        if (!subSubMap.has(subSubCategory)) {
+          subSubMap.set(subSubCategory, new Set());
+        }
+
+        if (serviceType) {
+          subSubMap.get(subSubCategory).add(serviceType);
+        }
+      });
+
+    return Array.from(tree.entries()).map(([subCategory, subSubMap]) => ({
+      subCategory,
+      subSubCategories: Array.from(subSubMap.entries()).map(([subSubCategory, serviceTypesSet]) => ({
+        subSubCategory,
+        serviceTypes: Array.from(serviceTypesSet),
+      })),
+    }));
+  };
+
+  const activePanelCategory = pinnedCategory || hoveredCategory;
+  const hoveredServiceHierarchy = getServiceHierarchyForCategory(activePanelCategory);
+
+  const applyCategoryFilter = (category) => {
+    setSelectedCategory(category);
+    setSelectedSubCategory('all');
+    setSelectedSubSubCategory('all');
+    setSelectedServiceType('all');
+  };
+
+  const handleCategoryTabClick = (categoryId) => {
+    applyCategoryFilter(categoryId);
+    if (categoryId === 'all') {
+      setPinnedCategory(null);
+      setHoveredCategory(null);
+      return;
+    }
+    setPinnedCategory((prev) => (prev === categoryId ? null : categoryId));
+    setHoveredCategory(categoryId);
+  };
+
+  const handleSubCategorySelect = (category, subCategory) => {
+    setSelectedCategory(category);
+    setSelectedSubCategory(subCategory);
+    setSelectedSubSubCategory('all');
+    setSelectedServiceType('all');
+  };
+
+  const handleSubSubCategorySelect = (category, subCategory, subSubCategory) => {
+    setSelectedCategory(category);
+    setSelectedSubCategory(subCategory);
+    setSelectedSubSubCategory(subSubCategory);
+    setSelectedServiceType('all');
+  };
+
+  const handleServiceTypeSelect = (category, subCategory, subSubCategory, serviceType) => {
+    setSelectedCategory(category);
+    setSelectedSubCategory(subCategory);
+    setSelectedSubSubCategory(subSubCategory);
+    setSelectedServiceType(serviceType);
+  };
 
   const getSubCategoryOptions = () => {
     if (selectedCategory === 'all') {
@@ -170,6 +250,42 @@ function Services() {
   const subCategoryOptions = getSubCategoryOptions();
   const subSubCategoryOptions = getSubSubCategoryOptions();
 
+  const activeServicePath = [
+    selectedCategory !== 'all' ? { level: 'category', label: selectedCategory } : null,
+    selectedSubCategory !== 'all' ? { level: 'subCategory', label: selectedSubCategory } : null,
+    selectedSubSubCategory !== 'all' ? { level: 'subSubCategory', label: selectedSubSubCategory } : null,
+    selectedServiceType !== 'all' ? { level: 'serviceType', label: selectedServiceType } : null,
+  ].filter(Boolean);
+
+  const clearServicePathFromLevel = (level) => {
+    if (level === 'category') {
+      setSelectedCategory('all');
+      setSelectedSubCategory('all');
+      setSelectedSubSubCategory('all');
+      setSelectedServiceType('all');
+      setPinnedCategory(null);
+      setHoveredCategory(null);
+      return;
+    }
+
+    if (level === 'subCategory') {
+      setSelectedSubCategory('all');
+      setSelectedSubSubCategory('all');
+      setSelectedServiceType('all');
+      return;
+    }
+
+    if (level === 'subSubCategory') {
+      setSelectedSubSubCategory('all');
+      setSelectedServiceType('all');
+      return;
+    }
+
+    if (level === 'serviceType') {
+      setSelectedServiceType('all');
+    }
+  };
+
   const filtered = servicesData.filter((service) => {
     const matchesCategory = selectedCategory === 'all' || service.category === selectedCategory;
     const matchesSubCategory = selectedSubCategory === 'all' || service.subCategory === selectedSubCategory;
@@ -185,6 +301,18 @@ function Services() {
     if (sortBy === 'rating') return b.rating - a.rating;
     return 0;
   });
+
+  const handleBookNow = (service) => {
+    const bookingDraft = {
+      serviceId: service.id,
+      serviceName: service.name,
+      scheduledDate: new Date().toISOString().slice(0, 10),
+      expectedPrice: service.price,
+    };
+
+    localStorage.setItem('bookingDraft', JSON.stringify(bookingDraft));
+    navigate('/bookings');
+  };
 
   return (
     <div className="services-page">
@@ -211,23 +339,120 @@ function Services() {
                 <p>{sorted.length} results</p>
               </div>
 
-              <div className="category-tabs" role="tablist" aria-label="Service categories">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    className={`category-tab ${selectedCategory === cat.id ? 'active' : ''}`}
-                    onClick={() => {
-                      setSelectedCategory(cat.id);
-                      setSelectedSubCategory('all');
-                      setSelectedSubSubCategory('all');
-                      setSelectedServiceType('all');
-                    }}
-                    type="button"
-                  >
-                    <span className="tab-icon">{cat.icon}</span>
-                    <span className="tab-name">{cat.name}</span>
-                  </button>
-                ))}
+              {activeServicePath.length > 0 && (
+                <div className="active-filter-path" aria-label="Active service filters">
+                  {activeServicePath.map((item, index) => (
+                    <React.Fragment key={`${item.level}-${item.label}`}>
+                      {index > 0 && <span className="path-separator">&gt;</span>}
+                      <button
+                        type="button"
+                        className="path-chip"
+                        onClick={() => clearServicePathFromLevel(item.level)}
+                        title={`Clear ${item.label} and deeper levels`}
+                      >
+                        {item.label}
+                        <span className="path-chip-close">x</span>
+                      </button>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
+
+              <div
+                className="category-hover-wrap"
+                onMouseLeave={() => {
+                  if (!pinnedCategory) {
+                    setHoveredCategory(null);
+                  }
+                }}
+              >
+                <div className="category-tabs" role="tablist" aria-label="Service categories">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      className={`category-tab ${selectedCategory === cat.id ? 'active' : ''}`}
+                      onMouseEnter={() => {
+                        if (!pinnedCategory) {
+                          setHoveredCategory(cat.id === 'all' ? null : cat.id);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (!pinnedCategory) {
+                          setHoveredCategory(cat.id === 'all' ? null : cat.id);
+                        }
+                      }}
+                      onClick={() => handleCategoryTabClick(cat.id)}
+                      type="button"
+                    >
+                      <span className="tab-name">{cat.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {activePanelCategory && hoveredServiceHierarchy.length > 0 && (
+                  <div className="services-hover-panel" role="region" aria-label={`${activePanelCategory} hierarchy`}>
+                    <div className="services-hover-panel-head">{activePanelCategory}</div>
+                    <div className="services-hover-columns">
+                      {hoveredServiceHierarchy.map((node) => (
+                        <article key={node.subCategory} className="services-hover-col">
+                          <h4>
+                            <button
+                              type="button"
+                              className="hover-action-btn"
+                              onClick={() => handleSubCategorySelect(activePanelCategory, node.subCategory)}
+                            >
+                              {node.subCategory}
+                            </button>
+                          </h4>
+                          {node.subSubCategories.length > 0 ? (
+                            <ul>
+                              {node.subSubCategories.map((leaf) => (
+                                <li key={`${node.subCategory}-${leaf.subSubCategory}`}>
+                                  <button
+                                    type="button"
+                                    className="hover-leaf-name hover-action-btn"
+                                    onClick={() =>
+                                      handleSubSubCategorySelect(
+                                        activePanelCategory,
+                                        node.subCategory,
+                                        leaf.subSubCategory
+                                      )
+                                    }
+                                  >
+                                    {leaf.subSubCategory}
+                                  </button>
+                                  {leaf.serviceTypes.length > 0 && (
+                                    <p>
+                                      {leaf.serviceTypes.map((serviceType) => (
+                                        <button
+                                          key={`${leaf.subSubCategory}-${serviceType}`}
+                                          type="button"
+                                          className="hover-mini-chip"
+                                          onClick={() =>
+                                            handleServiceTypeSelect(
+                                              activePanelCategory,
+                                              node.subCategory,
+                                              leaf.subSubCategory,
+                                              serviceType
+                                            )
+                                          }
+                                        >
+                                          {serviceType}
+                                        </button>
+                                      ))}
+                                    </p>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="hover-empty">No subcategories</p>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="hierarchy-filters" aria-label="Service hierarchy filters">
@@ -339,7 +564,9 @@ function Services() {
 
                         <div className="service-footer">
                           <span className="price">₹{service.price}</span>
-                          <button className="book-now-btn" type="button">Book Now</button>
+                          <button className="book-now-btn" type="button" onClick={() => handleBookNow(service)}>
+                            Book Now
+                          </button>
                         </div>
                       </div>
                     </div>

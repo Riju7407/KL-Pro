@@ -15,13 +15,6 @@
   box-sizing: border-box;
 }
 
-.home {
-  width: 100%;
-  overflow-x: hidden;
-  background: radial-gradient(circle at 0% 0%, #fff7f7 0%, #f3f6fb 38%, #eef2f7 100%);
-  color: var(--home-ink);
-}
-
 .container {
   max-width: 1240px;
   margin: 0 auto;
@@ -117,13 +110,38 @@
   padding: 22px 0 60px;
 }
 
-.categories-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+.categories-carousel-shell,
+.category-services-carousel-shell {
+  overflow: hidden;
+  width: 100%;
+}
+
+.categories-track,
+.category-services-track {
+  display: flex;
   gap: 16px;
+  width: max-content;
+}
+
+.auto-scroll-ltr {
+  animation: slowMarqueeLTR 46s linear infinite;
+}
+
+.auto-scroll-ltr:hover {
+  animation-play-state: paused;
+}
+
+@keyframes slowMarqueeLTR {
+  0% {
+    transform: translateX(calc(-50% - 8px));
+  }
+  100% {
+    transform: translateX(0);
+  }
 }
 
 .quick-card {
+  flex: 0 0 190px;
   background: var(--home-surface);
   border-radius: 14px;
   border: 1px solid var(--home-line);
@@ -239,7 +257,7 @@
 }
 
 .offer-banner:nth-child(3) {
-  background: linear-gradient(140deg, #986000 0%, #d28e00 100%);
+  background: linear-gradient(140deg, #7a4a00 0%, #a76300 100%);
 }
 
 .offer-badge {
@@ -262,7 +280,9 @@
 
 .offer-banner p {
   margin: 8px 0 0;
-  opacity: 0.95;
+  opacity: 1;
+  color: #fff;
+  font-weight: 600;
 }
 
 .most-booked {
@@ -439,11 +459,16 @@
 }
 
 .category-service-card {
+  flex: 0 0 210px;
   border-radius: 14px;
   border: 1px solid var(--home-line);
   background: #fff;
   padding: 12px;
   box-shadow: 0 8px 20px rgba(16, 42, 67, 0.06);
+}
+
+.category-services-track .category-service-card {
+  width: 210px;
 }
 
 .service-image-lg {
@@ -532,7 +557,9 @@
 .cta-box p {
   margin: 10px auto 0;
   max-width: 620px;
-  opacity: 0.95;
+  color: #f0f8ff;
+  font-weight: 600;
+  opacity: 1;
 }
 
 .cta-btn {
@@ -558,6 +585,10 @@
   .offers-carousel {
     grid-template-columns: 1fr;
   }
+
+  .auto-scroll-ltr {
+    animation-duration: 56s;
+  }
 }
 
 @media (max-width: 640px) {
@@ -581,9 +612,7 @@
     width: 100%;
   }
 
-  .categories-grid,
-  .services-carousel,
-  .category-services {
+  .services-carousel {
     grid-template-columns: 1fr;
   }
 

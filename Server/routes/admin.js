@@ -24,6 +24,16 @@ const {
   toggleServiceStatus,
   toggleMostBooked
 } = require('../controllers/serviceController');
+const {
+  getAllContacts,
+  deleteContact
+} = require('../controllers/contactController');
+const {
+  getHomepageCardsAdmin,
+  createHomepageCard,
+  updateHomepageCard,
+  deleteHomepageCard,
+} = require('../controllers/homepageCardController');
 const verifyAdminToken = require('../middleware/adminAuth');
 
 // Debug middleware
@@ -70,6 +80,16 @@ router.put('/services/:id', verifyAdminToken, upload.single('image'), updateServ
 router.get('/services/:id', verifyAdminToken, getServiceById);
 router.post('/services', verifyAdminToken, upload.single('image'), createService);
 router.get('/services', verifyAdminToken, getAllServices);
+
+// Admin Contact Management
+router.get('/contacts', verifyAdminToken, getAllContacts);
+router.delete('/contacts/:id', verifyAdminToken, deleteContact);
+
+// Admin Homepage Cards Management
+router.get('/homepage-cards', verifyAdminToken, getHomepageCardsAdmin);
+router.post('/homepage-cards', verifyAdminToken, createHomepageCard);
+router.put('/homepage-cards/:id', verifyAdminToken, updateHomepageCard);
+router.delete('/homepage-cards/:id', verifyAdminToken, deleteHomepageCard);
 
 // Booking workflow visibility for admin
 router.get('/bookings', verifyAdminToken, async (req, res) => {

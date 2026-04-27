@@ -617,6 +617,11 @@
   box-shadow: 0 0 0 4px rgba(123, 44, 191, 0.1);
 }
 
+.form-group input:focus::placeholder {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .form-group input[type="checkbox"] {
   width: auto;
   margin-right: 10px;

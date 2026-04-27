@@ -5,11 +5,33 @@ import API_BASE_URL from '../config/apiConfig';
 
 function Home() {
   const [mostBookedServices, setMostBookedServices] = useState([]);
+  const [homepageSections, setHomepageSections] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchMostBookedServices();
+    fetchHomepageCards();
   }, []);
+
+  const fetchHomepageCards = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/homepage-cards`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      setHomepageSections(data.sections || null);
+    } catch (err) {
+      console.error('Error fetching homepage cards:', err);
+    }
+  };
 
   const fetchMostBookedServices = async () => {
     try {
@@ -80,6 +102,42 @@ function Home() {
     },
   ];
 
+  const dynamicQuickCategories = homepageSections?.['explore-popular-categories']?.length
+    ? homepageSections['explore-popular-categories'].map((card, index) => ({
+        id: card._id || index,
+        name: card.title,
+        image: card.image || '/WSS.png',
+        time: card.time || '45 mins',
+      }))
+    : quickCategories;
+
+  const dynamicCategoryServices = [
+    {
+      title: 'Salon for Women',
+      subtitle: 'Signature beauty sessions with trained experts',
+      icon: 'WSS.png',
+      services: homepageSections?.['salon-for-women']?.length
+        ? homepageSections['salon-for-women'].map((card) => card.title)
+        : categoryServices.find((item) => item.title === 'Salon for Women')?.services || [],
+    },
+    {
+      title: 'Cleaning Essentials',
+      subtitle: 'Deep cleaning routines for every corner',
+      icon: 'C.png',
+      services: homepageSections?.['cleaning-essentials']?.length
+        ? homepageSections['cleaning-essentials'].map((card) => card.title)
+        : categoryServices.find((item) => item.title === 'Cleaning Essentials')?.services || [],
+    },
+    {
+      title: 'Grooming for Men',
+      subtitle: 'Contemporary grooming with premium products',
+      icon: 'MG.png',
+      services: homepageSections?.['grooming-for-men']?.length
+        ? homepageSections['grooming-for-men'].map((card) => card.title)
+        : categoryServices.find((item) => item.title === 'Grooming for Men')?.services || [],
+    },
+  ];
+
   const platformHighlights = [
     { id: 1, value: '10K+', label: 'Monthly Appointments' },
     { id: 2, value: '4.8★', label: 'Average Customer Rating' },
@@ -129,17 +187,19 @@ function Home() {
             <h2>Explore Popular Categories</h2>
             <p>Find the right service in seconds and book at your convenience.</p>
           </div>
-          <div className="categories-grid">
-            {quickCategories.map((cat) => (
-              <div key={cat.id} className="quick-card">
-                <div className="quick-image">
-                  <img src={cat.image} alt={cat.name} />
+          <div className="categories-carousel-shell">
+            <div className="categories-track auto-scroll-ltr">
+              {[...dynamicQuickCategories, ...dynamicQuickCategories].map((cat, idx) => (
+                <div key={`${cat.id}-${idx}`} className="quick-card" aria-hidden={idx >= dynamicQuickCategories.length}>
+                  <div className="quick-image">
+                    <img src={cat.image} alt={cat.name} />
+                  </div>
+                  <h3>{cat.name}</h3>
+                  <p className="quick-time">⏱️ {cat.time}</p>
+                  <button className="quick-btn" type="button">Book</button>
                 </div>
-                <h3>{cat.name}</h3>
-                <p className="quick-time">⏱️ {cat.time}</p>
-                <button className="quick-btn" type="button">Book</button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -231,7 +291,7 @@ function Home() {
         </div>
       </section>
 
-      {categoryServices.map((category) => (
+      {dynamicCategoryServices.map((category) => (
         <section key={category.title} className="category-section">
           <div className="container">
             <div className="category-header">
@@ -241,18 +301,35 @@ function Home() {
               </div>
               <a href="/services" className="see-all">See all →</a>
             </div>
-            <div className="category-services">
-              {category.services.map((service, idx) => (
-                <div key={idx} className="category-service-card">
-                  <div className="service-image-lg">
-                    <img src={`/${category.icon}`} alt={category.title} />
-                  </div>
-                  <h3>{service}</h3>
-                  <p>Professional & verified</p>
-                  <button className="service-btn" type="button">Explore</button>
+            {category.title === 'Salon for Women' ? (
+              <div className="category-services-carousel-shell">
+                <div className="category-services-track auto-scroll-ltr">
+                  {[...category.services, ...category.services].map((service, idx) => (
+                    <div key={`${service}-${idx}`} className="category-service-card" aria-hidden={idx >= category.services.length}>
+                      <div className="service-image-lg">
+                        <img src={`/${category.icon}`} alt={category.title} />
+                      </div>
+                      <h3>{service}</h3>
+                      <p>Professional & verified</p>
+                      <button className="service-btn" type="button">Explore</button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="category-services">
+                {category.services.map((service, idx) => (
+                  <div key={idx} className="category-service-card">
+                    <div className="service-image-lg">
+                      <img src={`/${category.icon}`} alt={category.title} />
+                    </div>
+                    <h3>{service}</h3>
+                    <p>Professional & verified</p>
+                    <button className="service-btn" type="button">Explore</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       ))}

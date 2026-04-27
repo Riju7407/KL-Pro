@@ -82,6 +82,11 @@
   background: #f8f9fa;
 }
 
+.form-group input:focus::placeholder {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .form-group input:disabled {
   background: #f0f0f0;
   cursor: not-allowed;

@@ -28,6 +28,10 @@ function AdminDashboard() {
   const [professionalApplications, setProfessionalApplications] = useState([]);
   const [applicationActionLoadingId, setApplicationActionLoadingId] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [homepageCards, setHomepageCards] = useState([]);
+  const [editingHomepageCard, setEditingHomepageCard] = useState(null);
+  const [showHomepageCardForm, setShowHomepageCardForm] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [kycCallingId, setKycCallingId] = useState('');
   const navigate = useNavigate();
@@ -46,7 +50,9 @@ function AdminDashboard() {
       fetchServices(),
       fetchProducts(),
       fetchProfessionalApplications(),
-      fetchBookings()
+      fetchBookings(),
+      fetchContacts(),
+      fetchHomepageCards()
     ]).catch(err => {
       setError(err.message);
       if (err.message.includes('401')) {
@@ -185,6 +191,143 @@ function AdminDashboard() {
 
     const data = await response.json();
     setBookings(data.bookings || []);
+  };
+
+  const fetchContacts = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/contacts`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch contact messages');
+      }
+
+      const data = await response.json();
+      setContacts(data.contacts || []);
+    } catch (err) {
+      console.error('Fetch contacts error:', err);
+    }
+  };
+
+  const fetchHomepageCards = async () => {
+    const token = localStorage.getItem('adminToken');
+    const response = await fetch(`${API_BASE_URL}/admin/homepage-cards`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch homepage cards');
+    }
+
+    const data = await response.json();
+    setHomepageCards(data.cards || []);
+  };
+
+  const handleCreateHomepageCard = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/homepage-cards`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editingHomepageCard),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create homepage card');
+      }
+
+      await fetchHomepageCards();
+      setEditingHomepageCard(null);
+      setShowHomepageCardForm(false);
+      alert('Homepage card created successfully');
+    } catch (err) {
+      setError(err.message || 'Failed to create homepage card');
+    }
+  };
+
+  const handleUpdateHomepageCard = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/homepage-cards/${editingHomepageCard._id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editingHomepageCard),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update homepage card');
+      }
+
+      await fetchHomepageCards();
+      setEditingHomepageCard(null);
+      alert('Homepage card updated successfully');
+    } catch (err) {
+      setError(err.message || 'Failed to update homepage card');
+    }
+  };
+
+  const handleDeleteHomepageCard = async (cardId) => {
+    if (!window.confirm('Delete this homepage card?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/homepage-cards/${cardId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete homepage card');
+      }
+
+      await fetchHomepageCards();
+      alert('Homepage card deleted successfully');
+    } catch (err) {
+      setError(err.message || 'Failed to delete homepage card');
+    }
+  };
+
+  const handleDeleteContact = async (contactId) => {
+    if (!window.confirm('Delete this contact request?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/contacts/${contactId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete contact message');
+      }
+
+      setContacts(contacts.filter((contact) => contact._id !== contactId));
+      alert('Contact request deleted successfully');
+    } catch (err) {
+      setError(err.message || 'Failed to delete contact request');
+    }
   };
 
   const handleReviewProfessional = async (applicationId, status) => {
@@ -526,6 +669,12 @@ function AdminDashboard() {
 
   const customerUsers = users.filter((user) => user.userType === 'customer');
   const professionalUsers = users.filter((user) => user.userType === 'professional');
+  const filteredContacts = contacts.filter((contact) =>
+    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    contact.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (contact.subject || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const filteredCustomers = customerUsers.filter((user) =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -629,8 +778,10 @@ function AdminDashboard() {
     { id: 'shop', icon: '🛍️', label: 'Shop', count: statistics?.totalUsers || 0 },
     { id: 'orders', icon: '📦', label: 'Booking', count: bookings.length },
     { id: 'customers', icon: '👥', label: 'Customers', count: customerUsers.length },
+    { id: 'contacts', icon: '✉️', label: 'Contacts', count: contacts.length },
     { id: 'professionals', icon: '🧑‍🔧', label: 'Professionals', count: professionalUsers.length, pendingCount: pendingApplicationsCount },
     { id: 'catalog', icon: '🧾', label: 'Services', count: services.length },
+    { id: 'homecards', icon: '🏠', label: 'Home Cards', count: homepageCards.length },
     { id: 'products', icon: '📦', label: 'Products', count: productCount },
     { id: 'analytics', icon: '📈', label: 'Analytics', count: 3 },
     { id: 'settings', icon: '⚙️', label: 'Settings', count: null }
@@ -1090,6 +1241,59 @@ function AdminDashboard() {
           </div>
         )}
 
+        {activeTab === 'contacts' && (
+          <div className="users-section">
+            <div className="users-header">
+              <h2>Contact Requests</h2>
+              <input
+                type="text"
+                placeholder="Search contact requests..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+            <div className="users-table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Subject</th>
+                    <th>Message</th>
+                    <th>Submitted</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredContacts.length > 0 ? (
+                    filteredContacts.map((contact) => (
+                      <tr key={contact._id}>
+                        <td>{contact.name}</td>
+                        <td>{contact.email}</td>
+                        <td>{contact.phone || '—'}</td>
+                        <td>{contact.subject || 'General'}</td>
+                        <td>{contact.message.length > 80 ? `${contact.message.slice(0, 80)}...` : contact.message}</td>
+                        <td>{new Date(contact.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          <button className="btn-delete-small" onClick={() => handleDeleteContact(contact._id)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="text-center">No contact requests found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'professionals' && (
           <div className="users-section">
             <div className="users-header">
@@ -1350,6 +1554,166 @@ function AdminDashboard() {
             handleServiceImageChange={handleServiceImageChange}
             imagePreview={imagePreview}
           />
+        )}
+
+        {activeTab === 'homecards' && (
+          <section className="users-section">
+            <div className="users-header">
+              <h2>Homepage Cards</h2>
+              <button
+                type="button"
+                className="theme-toggle-btn"
+                onClick={() => {
+                  setShowHomepageCardForm(true);
+                  setEditingHomepageCard({
+                    section: 'explore-popular-categories',
+                    title: '',
+                    subtitle: '',
+                    image: '',
+                    time: '',
+                    order: 0,
+                    isActive: true,
+                  });
+                }}
+              >
+                Add Card
+              </button>
+            </div>
+
+            {showHomepageCardForm && editingHomepageCard && (
+              <div className="user-edit-form" style={{ marginBottom: 16 }}>
+                <h3>{editingHomepageCard._id ? 'Edit Card' : 'Add Card'}</h3>
+                <div className="form-group">
+                  <label>Section</label>
+                  <select
+                    value={editingHomepageCard.section}
+                    onChange={(e) => setEditingHomepageCard({ ...editingHomepageCard, section: e.target.value })}
+                  >
+                    <option value="explore-popular-categories">Explore Popular Categories</option>
+                    <option value="salon-for-women">Salon for Women</option>
+                    <option value="cleaning-essentials">Cleaning Essentials</option>
+                    <option value="grooming-for-men">Grooming for Men</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    value={editingHomepageCard.title}
+                    onChange={(e) => setEditingHomepageCard({ ...editingHomepageCard, title: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Subtitle (optional)</label>
+                  <input
+                    type="text"
+                    value={editingHomepageCard.subtitle || ''}
+                    onChange={(e) => setEditingHomepageCard({ ...editingHomepageCard, subtitle: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Image URL (optional)</label>
+                  <input
+                    type="text"
+                    value={editingHomepageCard.image || ''}
+                    onChange={(e) => setEditingHomepageCard({ ...editingHomepageCard, image: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Time (optional)</label>
+                  <input
+                    type="text"
+                    value={editingHomepageCard.time || ''}
+                    onChange={(e) => setEditingHomepageCard({ ...editingHomepageCard, time: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Order</label>
+                  <input
+                    type="number"
+                    value={editingHomepageCard.order ?? 0}
+                    onChange={(e) => setEditingHomepageCard({ ...editingHomepageCard, order: Number(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Active</label>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingHomepageCard.isActive)}
+                    onChange={(e) => setEditingHomepageCard({ ...editingHomepageCard, isActive: e.target.checked })}
+                  />
+                </div>
+                <div className="form-actions">
+                  <button
+                    className="btn-save"
+                    onClick={editingHomepageCard._id ? handleUpdateHomepageCard : handleCreateHomepageCard}
+                  >
+                    {editingHomepageCard._id ? 'Update Card' : 'Create Card'}
+                  </button>
+                  <button
+                    className="btn-cancel"
+                    onClick={() => {
+                      setShowHomepageCardForm(false);
+                      setEditingHomepageCard(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="users-table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>Section</th>
+                    <th>Title</th>
+                    <th>Subtitle</th>
+                    <th>Time</th>
+                    <th>Order</th>
+                    <th>Active</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {homepageCards.length > 0 ? (
+                    homepageCards.map((card) => (
+                      <tr key={card._id}>
+                        <td>{card.section}</td>
+                        <td>{card.title}</td>
+                        <td>{card.subtitle || '-'}</td>
+                        <td>{card.time || '-'}</td>
+                        <td>{card.order ?? 0}</td>
+                        <td>{card.isActive ? 'Yes' : 'No'}</td>
+                        <td>
+                          <button
+                            className="btn-view"
+                            onClick={() => {
+                              setShowHomepageCardForm(true);
+                              setEditingHomepageCard({ ...card });
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="btn-delete-small"
+                            onClick={() => handleDeleteHomepageCard(card._id)}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="text-center">No homepage cards found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
 
         {activeTab === 'products' && (

@@ -73,6 +73,8 @@ app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/calls', require('./routes/calls'));
+app.use('/api/contact', require('./routes/contact'));
+app.use('/api/homepage-cards', require('./routes/homepageCards'));
 
 // Health Check
 app.get('/', (req, res) => {

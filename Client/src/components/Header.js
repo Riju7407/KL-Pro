@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { disconnectSocket } from '../api/socket';
@@ -7,6 +8,11 @@ import './Header.css';
 
 function Header() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [allProducts, setAllProducts] = useState([]);
+  const [allServices, setAllServices] = useState([]);
+  const suggestionsRef = useRef(null);
   const [authUser, setAuthUser] = useState(null);
   const [isAdminSession, setIsAdminSession] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -14,6 +20,41 @@ function Header() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Fetch all products and services for suggestions (on mount)
+  useEffect(() => {
+    const fetchSuggestionsData = async () => {
+      try {
+        const [productsRes, servicesRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/products?limit=1000`),
+          fetch(`${API_BASE_URL}/services`),
+        ]);
+        const productsPayload = await productsRes.json();
+        const servicesPayload = await servicesRes.json();
+        const products = Array.isArray(productsPayload) ? productsPayload : productsPayload.products || [];
+        const services = Array.isArray(servicesPayload) ? servicesPayload : servicesPayload.services || [];
+        setAllProducts(products);
+        setAllServices(services);
+      } catch (err) {
+        // Ignore errors for suggestions
+      }
+    };
+    fetchSuggestionsData();
+  }, []);
+
+  // Handle click outside suggestions dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    if (showSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showSuggestions]);
+
+  // Sync auth state and cart count
   useEffect(() => {
     const syncAuthState = () => {
       const adminToken = localStorage.getItem('adminToken');
@@ -73,10 +114,61 @@ function Header() {
     }
   }, [location.pathname, location.search]);
 
+  // Suggestion logic
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    const query = searchQuery.trim().toLowerCase();
+    // Product suggestions
+    const productSuggestions = allProducts
+      .filter((p) =>
+        p.name?.toLowerCase().includes(query) ||
+        p.category?.toLowerCase().includes(query) ||
+        p.subcategory?.toLowerCase?.().includes(query) ||
+        p.subSubcategory?.toLowerCase?.().includes(query)
+      )
+      .slice(0, 5)
+      .map((p) => ({
+        type: 'product',
+        id: p._id || p.id,
+        name: p.name,
+        category: p.category,
+      }));
+    // Service suggestions
+    const serviceSuggestions = allServices
+      .filter((s) =>
+        s.name?.toLowerCase().includes(query) ||
+        s.category?.toLowerCase().includes(query) ||
+        s.subCategory?.toLowerCase?.().includes(query) ||
+        s.subSubCategory?.toLowerCase?.().includes(query)
+      )
+      .slice(0, 5)
+      .map((s) => ({
+        type: 'service',
+        id: s._id || s.id,
+        name: s.name,
+        category: s.category,
+      }));
+    setSuggestions([...productSuggestions, ...serviceSuggestions]);
+  }, [searchQuery, allProducts, allServices]);
+
+  const handleSuggestionClick = (suggestion) => {
+    setShowSuggestions(false);
+    setSearchQuery(suggestion.name);
+    if (suggestion.type === 'product') {
+      navigate(`/product/${suggestion.id}`);
+    } else if (suggestion.type === 'service') {
+      navigate(`/services?search=${encodeURIComponent(suggestion.name)}`);
+    }
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
     const query = searchQuery.trim();
     navigate(query ? `/products?search=${encodeURIComponent(query)}` : '/products');
+    setShowSuggestions(false);
   };
 
   const handleLogout = async () => {
@@ -127,16 +219,36 @@ function Header() {
           </Link>
         </div>
         
-        <div className="header-search">
-          <form onSubmit={handleSearch}>
-            <input 
-              type="text" 
-              placeholder="What are you looking for?" 
+        <div className="header-search" ref={suggestionsRef} style={{ position: 'relative' }}>
+          <form onSubmit={handleSearch} autoComplete="off">
+            <input
+              type="text"
+              placeholder="What are you looking for?"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => searchQuery && setShowSuggestions(true)}
+              autoComplete="off"
             />
             <button type="submit">Search</button>
           </form>
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="search-suggestions-dropdown">
+              {suggestions.map((s, idx) => (
+                <div
+                  key={s.type + '-' + s.id + '-' + idx}
+                  className="search-suggestion-item"
+                  onClick={() => handleSuggestionClick(s)}
+                >
+                  <span className="suggestion-type">{s.type === 'product' ? 'Product' : 'Service'}</span>
+                  <span className="suggestion-name">{s.name}</span>
+                  {s.category && <span className="suggestion-category">({s.category})</span>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <nav className="navbar">

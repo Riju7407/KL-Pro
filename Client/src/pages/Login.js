@@ -137,11 +137,30 @@ function Login() {
     setSuccess('');
     setLoading(true);
 
+
     try {
-      if (!isLogin && formData.password !== formData.confirmPassword) {
-        setError('Password and confirm password must match');
-        setLoading(false);
-        return;
+      // Validation for SignUp (not login)
+      if (!isLogin) {
+        // Password match
+        if (formData.password !== formData.confirmPassword) {
+          setError('Password and confirm password must match');
+          setLoading(false);
+          return;
+        }
+        // Email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+          setError('Please enter a valid email address.');
+          setLoading(false);
+          return;
+        }
+        // Phone format (10 digits, allow +91, spaces, dashes)
+        const phoneRegex = /^(\+91[-\s]?)?[6-9]\d{9}$/;
+        if (!phoneRegex.test(formData.phone)) {
+          setError('Please enter a valid 10-digit phone number.');
+          setLoading(false);
+          return;
+        }
       }
 
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
