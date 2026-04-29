@@ -1,11 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './Services.css';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY, getHierarchyOptions, getServiceTypeOptions } from '../config/serviceHierarchy';
 
+const buildProfessionalsPath = (params) => {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim()) {
+      searchParams.set(key, String(value));
+    }
+  });
+
+  const search = searchParams.toString();
+  return search ? `/professionals?${search}` : '/professionals';
+};
+
 function Services() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [hoveredCategory, setHoveredCategory] = useState(null);
   const [pinnedCategory, setPinnedCategory] = useState(null);
@@ -16,6 +30,12 @@ function Services() {
   const [servicesData, setServicesData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setSearchTerm(params.get('search') || '');
+  }, [location.search]);
 
   useEffect(() => {
     fetchServices();
@@ -293,7 +313,15 @@ function Services() {
       selectedSubSubCategory === 'all' || service.subSubCategory === selectedSubSubCategory;
     const matchesServiceType = selectedServiceType === 'all' || service.serviceType === selectedServiceType;
 
-    return matchesCategory && matchesSubCategory && matchesSubSubCategory && matchesServiceType;
+    const search = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !search ||
+      service.name.toLowerCase().includes(search) ||
+      service.description.toLowerCase().includes(search) ||
+      service.category.toLowerCase().includes(search) ||
+      service.subCategory.toLowerCase().includes(search);
+
+    return matchesCategory && matchesSubCategory && matchesSubSubCategory && matchesServiceType && matchesSearch;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -311,7 +339,15 @@ function Services() {
     };
 
     localStorage.setItem('bookingDraft', JSON.stringify(bookingDraft));
-    navigate('/bookings');
+    navigate(
+      buildProfessionalsPath({
+        service: service.name,
+        category: service.category,
+        subCategory: service.subCategory,
+        subSubCategory: service.subSubCategory,
+        serviceType: service.serviceType,
+      })
+    );
   };
 
   return (

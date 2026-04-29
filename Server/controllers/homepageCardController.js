@@ -1,4 +1,23 @@
 const HomepageCard = require('../models/HomepageCard');
+const cloudinary = require('../config/cloudinary');
+
+const uploadBufferToCloudinary = (buffer, folder) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'auto',
+      },
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+        resolve(result);
+      }
+    );
+    uploadStream.end(buffer);
+  });
+};
 
 const mapCardsBySection = (cards) => {
   const sections = {
@@ -42,11 +61,17 @@ const createHomepageCard = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Section and title are required' });
     }
 
+    let imageUrl = image || '';
+    if (req.file) {
+      const uploadResult = await uploadBufferToCloudinary(req.file.buffer, 'homepage_cards');
+      imageUrl = uploadResult.secure_url || uploadResult.url || imageUrl;
+    }
+
     const card = await HomepageCard.create({
       section,
       title,
       subtitle: subtitle || '',
-      image: image || '',
+      image: imageUrl,
       time: time || '',
       order: Number(order) || 0,
       isActive: isActive === undefined ? true : String(isActive) !== 'false',
@@ -63,23 +88,32 @@ const updateHomepageCard = async (req, res) => {
     const { id } = req.params;
     const { section, title, subtitle, image, time, order, isActive } = req.body;
 
+    const existingCard = await HomepageCard.findById(id);
+    if (!existingCard) {
+      return res.status(404).json({ success: false, message: 'Homepage card not found' });
+    }
+
+    let imageUrl = existingCard.image || '';
+    if (req.file) {
+      const uploadResult = await uploadBufferToCloudinary(req.file.buffer, 'homepage_cards');
+      imageUrl = uploadResult.secure_url || uploadResult.url || imageUrl;
+    } else if (image !== undefined) {
+      imageUrl = image;
+    }
+
     const updated = await HomepageCard.findByIdAndUpdate(
       id,
       {
         section,
         title,
         subtitle: subtitle || '',
-        image: image || '',
+        image: imageUrl,
         time: time || '',
         order: Number(order) || 0,
         isActive: isActive === undefined ? true : String(isActive) !== 'false',
       },
       { new: true, runValidators: true }
     );
-
-    if (!updated) {
-      return res.status(404).json({ success: false, message: 'Homepage card not found' });
-    }
 
     res.status(200).json({ success: true, message: 'Homepage card updated', card: updated });
   } catch (error) {

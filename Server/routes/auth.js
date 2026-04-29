@@ -244,6 +244,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    if (user.isDeleted) {
+      return res.status(403).json({
+        success: false,
+        message: 'This account has been deleted by admin.',
+      });
+    }
+
     if (user.userType === 'professional' && ['pending', 'rejected'].includes(user.approvalStatus)) {
       const statusLabel = user.approvalStatus || 'pending';
       return res.status(403).json({
@@ -282,6 +289,7 @@ router.post('/login', async (req, res) => {
         email: user.email,
         userType: user.userType,
         approvalStatus: user.approvalStatus,
+        isDeleted: user.isDeleted,
       },
     });
   } catch (error) {

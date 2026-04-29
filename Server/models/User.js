@@ -46,7 +46,24 @@ const userSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected'],
       default: 'approved',
     },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'scheduled', 'completed', 'rejected'],
+      default: 'pending',
+    },
     approvalNote: {
+      type: String,
+      default: '',
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
       type: String,
       default: '',
     },

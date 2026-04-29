@@ -94,6 +94,66 @@
   color: #15445d;
 }
 
+.whatsapp-button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 2px solid #25d366;
+  border-radius: 9px;
+  padding: 10px 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #25d366 0%, #20ba5a 100%);
+  color: #fff;
+  text-decoration: none;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.whatsapp-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.4);
+  background: linear-gradient(135deg, #20ba5a 0%, #1da85c 100%);
+}
+
+.whatsapp-button span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.whatsapp-button span:first-child {
+  font-size: 14px;
+}
+
+.app-download-button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 2px solid #ff6b6b;
+  border-radius: 9px;
+  padding: 10px 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  color: #fff;
+  text-decoration: none;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.app-download-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+  background: linear-gradient(135deg, #ee5a52 0%, #e53e3e 100%);
+}
+
+.app-download-button span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .profile-insights-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));

@@ -60,11 +60,13 @@ const getKycContext = async (professionalId) => {
     return { error: { status: 404, message: 'Professional profile not found' } };
   }
 
-  if (String(professional.approvalStatus) !== 'pending') {
+  const professionalVerificationStatus = String(professional.verificationStatus || 'pending');
+
+  if (!(String(professional.approvalStatus) === 'approved' && ['scheduled', 'pending'].includes(professionalVerificationStatus))) {
     return {
       error: {
         status: 409,
-        message: 'Video KYC is only available while professional verification is pending',
+        message: 'Video KYC is only available after admin approval and while verification is scheduled',
       },
     };
   }

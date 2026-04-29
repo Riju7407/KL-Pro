@@ -174,18 +174,6 @@ function ProductDetails() {
 
   return (
     <div className="product-details-page">
-      <section className="product-details-hero">
-        <div className="product-details-hero-bg" style={{ backgroundImage: "url('/kl2.png')" }} />
-        <div className="product-details-hero-content">
-          <button className="back-btn" onClick={() => navigate('/products')}>
-            ← Back to Products
-          </button>
-          <p className="eyebrow">Product showcase</p>
-          <h1>{product.name}</h1>
-          <p className="hero-copy">{getHighlights()}</p>
-        </div>
-      </section>
-
       <div className="container">
         <section className="details-grid">
           <div className="image-column">

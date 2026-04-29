@@ -117,6 +117,30 @@ const professionalSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected'],
       default: 'pending',
     },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'scheduled', 'completed', 'rejected'],
+      default: 'pending',
+    },
+    verificationScheduledAt: {
+      type: Date,
+      default: null,
+    },
+    verificationScheduledTime: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    verificationMeetingLink: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    verificationNotification: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     approvalNote: {
       type: String,
       default: '',
@@ -130,6 +154,22 @@ const professionalSchema = new mongoose.Schema(
     reviewedAt: {
       type: Date,
       default: null,
+    },
+    verificationCompletedAt: {
+      type: Date,
+      default: null,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: String,
+      default: '',
     },
   },
   { timestamps: true }

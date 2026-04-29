@@ -190,26 +190,28 @@ const normalizeProfessional = (professional, servicePriceMap, index) => {
   };
 };
 
-const buildLiveSlots = ({ professionalId, selectedDate, nowMs }) => {
+const buildLiveSlots = ({ professionalId, selectedDate, nowMs, bookedSlots = [] }) => {
   const slots = [];
   const todayString = formatDateInput(new Date(nowMs));
   const nowMinutes = new Date(nowMs).getHours() * 60 + new Date(nowMs).getMinutes();
-  const seedRoot = makeDeterministicSeed(`${professionalId}-${selectedDate}`);
   const isToday = selectedDate === todayString;
+  const bookedSlotSet = new Set(
+    (Array.isArray(bookedSlots) ? bookedSlots : [])
+      .map((slot) => String(slot?.scheduledTime || '').trim())
+      .filter(Boolean)
+  );
 
   for (let minutes = SLOT_WINDOW_START; minutes <= SLOT_WINDOW_END; minutes += SLOT_INTERVAL_MINUTES) {
     const label = makeTimeLabel(minutes);
-    const seed = makeDeterministicSeed(`${seedRoot}-${minutes}`);
-    const dynamicDemand = seed % 5;
-    const seatsLeft = Math.max(0, 4 - dynamicDemand);
+    const isBooked = bookedSlotSet.has(label);
     const unavailableBecausePast = isToday && minutes <= nowMinutes + 30;
-    const isAvailable = seatsLeft > 0 && !unavailableBecausePast;
+    const isAvailable = !isBooked && !unavailableBecausePast;
 
     slots.push({
       label,
-      seatsLeft,
+      seatsLeft: isBooked ? 0 : 4,
       isAvailable,
-      reason: unavailableBecausePast ? 'Elapsed' : seatsLeft === 0 ? 'Booked out' : 'Available',
+      reason: isBooked ? 'Booked' : unavailableBecausePast ? 'Elapsed' : 'Available',
     });
   }
 
@@ -232,6 +234,7 @@ function ProfessionalDetails() {
   const [selectedSlot, setSelectedSlot] = useState('');
   const [slotNotice, setSlotNotice] = useState('');
   const [liveNow, setLiveNow] = useState(Date.now());
+  const [bookedSlots, setBookedSlots] = useState([]);
 
   const [userRating, setUserRating] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
@@ -252,8 +255,55 @@ function ProfessionalDetails() {
   }, []);
 
   useEffect(() => {
+    if (!professional?.id) {
+      setBookedSlots([]);
+      return undefined;
+    }
+
+    let mounted = true;
+
+    const fetchBookedSlots = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/bookings/public/professional/${professional.id}/slots?date=${encodeURIComponent(selectedDate)}`
+        );
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!mounted) return;
+
+        setBookedSlots(Array.isArray(data?.bookedSlots) ? data.bookedSlots : []);
+      } catch (fetchError) {
+        if (mounted) {
+          setBookedSlots([]);
+        }
+      }
+    };
+
+    fetchBookedSlots();
+
+    return () => {
+      mounted = false;
+    };
+  }, [professional?.id, selectedDate]);
+
+  useEffect(() => {
     const token = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
     const socket = getSocket(token);
+
+    const handleBookingAvailabilityChange = (payload) => {
+      if (!professional?.id) return;
+      if (String(payload?.professionalId || '') !== String(professional.id)) return;
+      fetch(`${API_BASE_URL}/bookings/public/professional/${professional.id}/slots?date=${encodeURIComponent(selectedDate)}`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (Array.isArray(data?.bookedSlots)) {
+            setBookedSlots(data.bookedSlots);
+          }
+        })
+        .catch(() => {});
+    };
 
     const handlePresence = ({ userId, isOnline }) => {
       setProfessional((prev) => {
@@ -267,12 +317,16 @@ function ProfessionalDetails() {
       });
     };
 
+    socket.on('booking-status-changed', handleBookingAvailabilityChange);
+    socket.on('professionals-availability-updated', handleBookingAvailabilityChange);
     socket.on('professional-presence-changed', handlePresence);
 
     return () => {
+      socket.off('booking-status-changed', handleBookingAvailabilityChange);
+      socket.off('professionals-availability-updated', handleBookingAvailabilityChange);
       socket.off('professional-presence-changed', handlePresence);
     };
-  }, []);
+  }, [professional?.id, selectedDate]);
 
   useEffect(() => {
     const fetchProfessional = async () => {
@@ -335,8 +389,9 @@ function ProfessionalDetails() {
       professionalId: professional.id,
       selectedDate,
       nowMs: liveNow,
+      bookedSlots,
     });
-  }, [professional, selectedDate, liveNow]);
+  }, [professional, selectedDate, liveNow, bookedSlots]);
 
   const fetchReviews = async (professionalId) => {
     try {

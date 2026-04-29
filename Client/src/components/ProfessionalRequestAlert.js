@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getSocket } from '../api/socket';
 import API_BASE_URL from '../config/apiConfig';
 import './ProfessionalRequestAlert.css';
@@ -14,135 +14,66 @@ const isProfessionalUser = () => {
   }
 };
 
-const createLongMelodyPlayer = () => {
-  let audioContext = null;
-  let isStopped = true;
-  let noteTimer = null;
-  let activeNodes = [];
-
-  const sequence = [
-    { freq: 523.25, duration: 0.22 },
-    { freq: 659.25, duration: 0.2 },
-    { freq: 783.99, duration: 0.24 },
-    { freq: 659.25, duration: 0.22 },
-    { freq: 587.33, duration: 0.2 },
-    { freq: 698.46, duration: 0.25 },
-    { freq: 783.99, duration: 0.26 },
-    { freq: 698.46, duration: 0.28 },
-  ];
-
-  const stopNodes = () => {
-    activeNodes.forEach(({ oscillator, gain }) => {
-      try {
-        oscillator.stop();
-      } catch (error) {
-        // no-op
-      }
-      try {
-        oscillator.disconnect();
-        gain.disconnect();
-      } catch (error) {
-        // no-op
-      }
-    });
-    activeNodes = [];
-  };
-
-  const playStep = (index = 0) => {
-    if (isStopped || !audioContext) return;
-
-    const note = sequence[index % sequence.length];
-    const now = audioContext.currentTime;
-
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-
-    oscillator.type = 'triangle';
-    oscillator.frequency.setValueAtTime(note.freq, now);
-
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.04, now + 0.04);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + note.duration);
-
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    oscillator.start(now);
-    oscillator.stop(now + note.duration + 0.04);
-
-    activeNodes.push({ oscillator, gain });
-
-    const waitMs = Math.max(120, Math.round(note.duration * 1000 + 90));
-    noteTimer = setTimeout(() => playStep(index + 1), waitMs);
-  };
-
-  return {
-    async start() {
-      if (!audioContext) {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
-        audioContext = new AudioContextClass();
-      }
-
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
-
-      if (!isStopped) return;
-      isStopped = false;
-      playStep(0);
-    },
-    stop() {
-      isStopped = true;
-      if (noteTimer) {
-        clearTimeout(noteTimer);
-        noteTimer = null;
-      }
-      stopNodes();
-    },
-  };
-};
-
 function ProfessionalRequestAlert() {
   const [pendingJobs, setPendingJobs] = useState([]);
   const [visible, setVisible] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState('');
-  const melodyRef = useRef(null);
+  const ringtoneIntervalRef = useRef(null);
+  const audioUnlockedRef = useRef(false);
+  const pendingBeepRef = useRef(false);
   const token = localStorage.getItem('userToken') || localStorage.getItem('token') || '';
   const professionalMode = isProfessionalUser();
 
-  useEffect(() => {
-    melodyRef.current = createLongMelodyPlayer();
-    return () => {
-      if (melodyRef.current) {
-        melodyRef.current.stop();
-      }
-    };
+  const playBeep = useCallback(() => {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(740, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.06, audioContext.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.18);
+
+      setTimeout(() => audioContext.close().catch(() => {}), 500);
+    } catch (error) {
+      // Ignore browser audio restrictions.
+    }
   }, []);
 
-  useEffect(() => {
-    if (!professionalMode || soundEnabled || !melodyRef.current) return undefined;
+  const startRingtone = useCallback(() => {
+    if (ringtoneIntervalRef.current) return;
 
-    const unlockAudio = async () => {
-      try {
-        await melodyRef.current.start();
-        melodyRef.current.stop();
-        setSoundEnabled(true);
-      } catch (error) {
-        // Keep waiting for next interaction.
-      }
-    };
+    playBeep();
+    ringtoneIntervalRef.current = window.setInterval(() => {
+      playBeep();
+    }, 1300);
+  }, [playBeep]);
 
-    window.addEventListener('click', unlockAudio, { once: true });
-    window.addEventListener('keydown', unlockAudio, { once: true });
-    window.addEventListener('touchstart', unlockAudio, { once: true });
+  const stopRingtone = useCallback(() => {
+    if (ringtoneIntervalRef.current) {
+      window.clearInterval(ringtoneIntervalRef.current);
+      ringtoneIntervalRef.current = null;
+    }
+  }, []);
 
-    return () => {
-      window.removeEventListener('click', unlockAudio);
-      window.removeEventListener('keydown', unlockAudio);
-      window.removeEventListener('touchstart', unlockAudio);
-    };
-  }, [professionalMode, soundEnabled]);
+  const unlockAlertAudio = useCallback(() => {
+    if (audioUnlockedRef.current) return;
+
+    audioUnlockedRef.current = true;
+    playBeep();
+
+    if (pendingBeepRef.current) {
+      pendingBeepRef.current = false;
+      window.setTimeout(() => {
+        playBeep();
+      }, 120);
+    }
+  }, [playBeep]);
 
   useEffect(() => {
     if (!professionalMode || !token) return undefined;
@@ -175,10 +106,16 @@ function ProfessionalRequestAlert() {
 
     fetchPendingJobs();
 
+    const unlockEvents = ['pointerdown', 'keydown', 'touchstart'];
+    unlockEvents.forEach((eventName) => {
+      window.addEventListener(eventName, unlockAlertAudio, { once: true });
+    });
+
     const socket = getSocket(token);
 
     const handleIncomingRequest = () => {
       setVisible(true);
+      startRingtone();
       fetchPendingJobs();
     };
 
@@ -189,28 +126,32 @@ function ProfessionalRequestAlert() {
     socket.on('booking-request-created', handleIncomingRequest);
     socket.on('booking-status-changed', handleStatusUpdate);
 
-    // Poll fallback for environments where websocket events can be delayed or dropped.
-    const pollTimer = setInterval(fetchPendingJobs, 8000);
-
     return () => {
       mounted = false;
-      clearInterval(pollTimer);
+      stopRingtone();
+      unlockEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, unlockAlertAudio);
+      });
       socket.off('booking-request-created', handleIncomingRequest);
       socket.off('booking-status-changed', handleStatusUpdate);
     };
-  }, [professionalMode, token]);
+  }, [professionalMode, token, startRingtone, stopRingtone, unlockAlertAudio]);
 
   useEffect(() => {
-    if (!professionalMode || !melodyRef.current) return;
-
-    if (visible && pendingJobs.length > 0 && soundEnabled) {
-      melodyRef.current.start().catch(() => {
-        // no-op
-      });
+    if (visible && pendingJobs.length > 0) {
+      startRingtone();
     } else {
-      melodyRef.current.stop();
+      stopRingtone();
     }
-  }, [pendingJobs.length, professionalMode, soundEnabled, visible]);
+
+    return () => stopRingtone();
+  }, [pendingJobs.length, startRingtone, stopRingtone, visible]);
+
+  useEffect(() => {
+    if (audioUnlockedRef.current || !visible || pendingJobs.length <= 0) return;
+    pendingBeepRef.current = true;
+  }, [pendingJobs.length, visible]);
+
 
   const updateBookingStatus = async (bookingId, status) => {
     try {
@@ -232,7 +173,7 @@ function ProfessionalRequestAlert() {
         const next = prev.filter((job) => String(job._id) !== String(bookingId));
         if (next.length === 0) {
           setVisible(false);
-          melodyRef.current?.stop();
+          stopRingtone();
         }
         return next;
       });
@@ -260,23 +201,6 @@ function ProfessionalRequestAlert() {
             {firstPending?.customerId?.name || 'Customer'} requested {firstPending?.serviceId?.name || 'Service'}
           </span>
         ) : null}
-        {!soundEnabled ? (
-          <button
-            type="button"
-            className="professional-global-alert__sound-btn"
-            onClick={async () => {
-              try {
-                await melodyRef.current?.start();
-                melodyRef.current?.stop();
-                setSoundEnabled(true);
-              } catch (error) {
-                // no-op
-              }
-            }}
-          >
-            Enable alert sound
-          </button>
-        ) : null}
         {firstPending ? (
           <div className="professional-global-alert__actions">
             <button
@@ -302,9 +226,7 @@ function ProfessionalRequestAlert() {
         type="button"
         onClick={() => {
           setVisible(false);
-          if (melodyRef.current) {
-            melodyRef.current.stop();
-          }
+          stopRingtone();
         }}
       >
         Dismiss

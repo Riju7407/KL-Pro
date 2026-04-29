@@ -72,7 +72,7 @@ function Profile() {
       ]);
 
       if (!profileResponse.ok) {
-        if (profileResponse.status === 401) {
+        if (profileResponse.status === 401 || profileResponse.status === 403) {
           localStorage.removeItem('userToken');
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -365,6 +365,26 @@ function Profile() {
           <button type="button" onClick={() => navigate('/bookings')}>My Orders</button>
           <button type="button" onClick={() => navigate('/services')}>Explore Services</button>
           <button type="button" onClick={openEditProfile}>Edit Profile</button>
+          <a 
+            href="https://wa.me/8738030604" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="whatsapp-button"
+            title="Emergency Time Connect With Whatsapp AI Doctor"
+          >
+            <span>🔔 Emergency Time</span>
+            <span>Connect With Whatsapp AI Doctor</span>
+          </a>
+          <a 
+            href="https://play.google.com/store/apps/details?id=in.cdac.ners.psa.mobile.android.national" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="app-download-button"
+            title="Download The App For Safety"
+          >
+            <span>📱 Click Link & Download The App</span>
+            <span>For Safety</span>
+          </a>
         </div>
       </section>
 

@@ -240,14 +240,11 @@ router.put('/me', authMiddleware, profileImageUpload, async (req, res) => {
 // Get all professionals
 router.get('/', async (req, res) => {
   try {
-    const busyProfessionalIds = await Booking.distinct('professionalId', {
-      status: { $in: ACTIVE_BLOCKING_STATUSES },
-    });
-
     const professionals = await Professional.find({
-      $or: [{ approvalStatus: 'approved' }, { approvalStatus: { $exists: false } }],
+      approvalStatus: 'approved',
       isBlocked: false,
-      _id: { $nin: busyProfessionalIds },
+      isDeleted: { $ne: true },
+      verificationStatus: 'completed',
     }).populate('userId', 'name email phone city rating approvalStatus profileImage');
 
     const onlineSet = getOnlineProfessionalUserIds();
@@ -267,7 +264,12 @@ router.get('/', async (req, res) => {
 // Get professional by ID
 router.get('/:id', async (req, res) => {
   try {
-    const professional = await Professional.findById(req.params.id).populate('userId', 'name email phone profileImage');
+    const professional = await Professional.findOne({
+      _id: req.params.id,
+      approvalStatus: 'approved',
+      isDeleted: { $ne: true },
+      verificationStatus: 'completed',
+    }).populate('userId', 'name email phone profileImage');
     if (!professional) {
       return res.status(404).json({ message: 'Professional not found' });
     }

@@ -1,9 +1,38 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Home.css';
 import HeroCarousel from '../components/HeroCarousel';
 import API_BASE_URL from '../config/apiConfig';
 
+const PROFESSIONAL_FOCUS_KEYWORDS = {
+  "women's salon & spa": 'women-salon',
+  'womens salon & spa': 'women-salon',
+  "men's grooming": 'men-grooming',
+  'men grooming': 'men-grooming',
+  'spa services': 'spa-services',
+  'hair services': 'hair-services',
+  makeup: 'makeup',
+  'home cleaning': 'home-cleaning',
+  'salon for women': 'salon-for-women',
+  'cleaning essentials': 'cleaning-essentials',
+  'grooming for men': 'grooming-for-men',
+};
+
+const buildProfessionalsPath = (params) => {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim()) {
+      searchParams.set(key, String(value));
+    }
+  });
+
+  const search = searchParams.toString();
+  return search ? `/professionals?${search}` : '/professionals';
+};
+
 function Home() {
+  const navigate = useNavigate();
   const [mostBookedServices, setMostBookedServices] = useState([]);
   const [homepageSections, setHomepageSections] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +146,11 @@ function Home() {
       subtitle: 'Signature beauty sessions with trained experts',
       icon: 'WSS.png',
       services: homepageSections?.['salon-for-women']?.length
-        ? homepageSections['salon-for-women'].map((card) => card.title)
+        ? homepageSections['salon-for-women'].map((card) => ({
+            id: card._id,
+            name: card.title,
+            image: card.image || '/WSS.png',
+          }))
         : categoryServices.find((item) => item.title === 'Salon for Women')?.services || [],
     },
     {
@@ -125,7 +158,11 @@ function Home() {
       subtitle: 'Deep cleaning routines for every corner',
       icon: 'C.png',
       services: homepageSections?.['cleaning-essentials']?.length
-        ? homepageSections['cleaning-essentials'].map((card) => card.title)
+        ? homepageSections['cleaning-essentials'].map((card) => ({
+            id: card._id,
+            name: card.title,
+            image: card.image || '/C.png',
+          }))
         : categoryServices.find((item) => item.title === 'Cleaning Essentials')?.services || [],
     },
     {
@@ -133,7 +170,11 @@ function Home() {
       subtitle: 'Contemporary grooming with premium products',
       icon: 'MG.png',
       services: homepageSections?.['grooming-for-men']?.length
-        ? homepageSections['grooming-for-men'].map((card) => card.title)
+        ? homepageSections['grooming-for-men'].map((card) => ({
+            id: card._id,
+            name: card.title,
+            image: card.image || '/MG.png',
+          }))
         : categoryServices.find((item) => item.title === 'Grooming for Men')?.services || [],
     },
   ];
@@ -159,6 +200,10 @@ function Home() {
       description: 'Real-time support and updates from booking to service completion.',
     },
   ];
+
+  const goToProfessionals = (params) => {
+    navigate(buildProfessionalsPath(params));
+  };
 
   return (
     <div className="home">
@@ -196,7 +241,17 @@ function Home() {
                   </div>
                   <h3>{cat.name}</h3>
                   <p className="quick-time">⏱️ {cat.time}</p>
-                  <button className="quick-btn" type="button">Book</button>
+                  <button
+                    className="quick-btn"
+                    type="button"
+                    onClick={() =>
+                      goToProfessionals({
+                        focus: PROFESSIONAL_FOCUS_KEYWORDS[String(cat.name || '').toLowerCase()] || String(cat.name || ''),
+                      })
+                    }
+                  >
+                    Book
+                  </button>
                 </div>
               ))}
             </div>
@@ -278,7 +333,17 @@ function Home() {
                   </div>
                   <div className="price-section">
                     <span className="price">₹{service.price}</span>
-                    <button className="book-btn" type="button">Book</button>
+                    <button
+                      className="book-btn"
+                      type="button"
+                      onClick={() =>
+                        goToProfessionals({
+                          service: service.name,
+                        })
+                      }
+                    >
+                      Book
+                    </button>
                   </div>
                 </div>
               ))}
@@ -304,30 +369,64 @@ function Home() {
             {category.title === 'Salon for Women' ? (
               <div className="category-services-carousel-shell">
                 <div className="category-services-track auto-scroll-ltr">
-                  {[...category.services, ...category.services].map((service, idx) => (
-                    <div key={`${service}-${idx}`} className="category-service-card" aria-hidden={idx >= category.services.length}>
-                      <div className="service-image-lg">
-                        <img src={`/${category.icon}`} alt={category.title} />
+                  {[...category.services, ...category.services].map((service, idx) => {
+                    const serviceName = typeof service === 'string' ? service : service.name;
+                    const serviceImage = typeof service === 'string' ? `/${category.icon}` : service.image;
+                    const serviceKey = typeof service === 'string' ? `${service}-${idx}` : `${service.id}-${idx}`;
+                    return (
+                      <div key={serviceKey} className="category-service-card" aria-hidden={idx >= category.services.length}>
+                        <div className="service-image-lg">
+                          <img src={serviceImage} alt={serviceName} />
+                        </div>
+                        <h3>{serviceName}</h3>
+                        <p>Professional & verified</p>
+                        <button
+                          className="service-btn"
+                          type="button"
+                          onClick={() =>
+                            goToProfessionals({
+                              focus: 'salon-for-women',
+                              service: serviceName,
+                            })
+                          }
+                        >
+                          Explore
+                        </button>
                       </div>
-                      <h3>{service}</h3>
-                      <p>Professional & verified</p>
-                      <button className="service-btn" type="button">Explore</button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ) : (
               <div className="category-services">
-                {category.services.map((service, idx) => (
-                  <div key={idx} className="category-service-card">
-                    <div className="service-image-lg">
-                      <img src={`/${category.icon}`} alt={category.title} />
+                {category.services.map((service, idx) => {
+                  const serviceName = typeof service === 'string' ? service : service.name;
+                  const serviceImage = typeof service === 'string' ? `/${category.icon}` : service.image;
+                  return (
+                    <div key={typeof service === 'string' ? `${service}-${idx}` : service.id} className="category-service-card">
+                      <div className="service-image-lg">
+                        <img src={serviceImage} alt={serviceName} />
+                      </div>
+                      <h3>{serviceName}</h3>
+                      <p>Professional & verified</p>
+                      <button
+                        className="service-btn"
+                        type="button"
+                        onClick={() =>
+                          goToProfessionals({
+                            focus:
+                              category.title === 'Cleaning Essentials'
+                                ? 'cleaning-essentials'
+                                : 'grooming-for-men',
+                            service: serviceName,
+                          })
+                        }
+                      >
+                        Explore
+                      </button>
                     </div>
-                    <h3>{service}</h3>
-                    <p>Professional & verified</p>
-                    <button className="service-btn" type="button">Explore</button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

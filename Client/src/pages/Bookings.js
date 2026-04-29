@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { getSocket } from '../api/socket';
@@ -48,6 +48,49 @@ function Bookings() {
   const [successMessage, setSuccessMessage] = useState('');
   const [prefillNotice, setPrefillNotice] = useState('');
   const [callingBookingId, setCallingBookingId] = useState('');
+  const bookingsSnapshotRef = useRef([]);
+  const bookingSoundReadyRef = useRef(false);
+  const bookingAudioUnlockedRef = useRef(false);
+  const pendingBookingSoundRef = useRef(false);
+
+  const playBeep = useCallback(() => {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(740, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.06, audioContext.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.18);
+
+      setTimeout(() => audioContext.close().catch(() => {}), 500);
+    } catch (error) {
+      // Ignore browser audio autoplay restrictions.
+    }
+  }, []);
+
+  const notifyStatusChange = useCallback(() => {
+    playBeep();
+  }, [playBeep]);
+
+  const unlockBookingAudio = useCallback(() => {
+    if (bookingAudioUnlockedRef.current) return;
+
+    bookingAudioUnlockedRef.current = true;
+    playBeep();
+
+    if (pendingBookingSoundRef.current) {
+      pendingBookingSoundRef.current = false;
+      window.setTimeout(() => {
+        playBeep();
+      }, 120);
+    }
+  }, [playBeep]);
 
   const [formData, setFormData] = useState({
     professionalId: '',
@@ -195,6 +238,19 @@ function Bookings() {
     }));
   }, [selectedService]);
 
+  useEffect(() => {
+    const unlockEvents = ['pointerdown', 'keydown', 'touchstart'];
+    unlockEvents.forEach((eventName) => {
+      window.addEventListener(eventName, unlockBookingAudio, { once: true });
+    });
+
+    return () => {
+      unlockEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, unlockBookingAudio);
+      });
+    };
+  }, [unlockBookingAudio]);
+
   const refreshBookings = useCallback(async () => {
     if (!token) return;
 
@@ -207,12 +263,47 @@ function Bookings() {
       });
       if (response.ok) {
         const data = await response.json();
-        setBookings(Array.isArray(data) ? data : []);
+        const nextBookings = Array.isArray(data) ? data : [];
+
+        if (bookingSoundReadyRef.current) {
+          const previousById = new Map(
+            (Array.isArray(bookingsSnapshotRef.current) ? bookingsSnapshotRef.current : []).map((booking) => [
+              String(booking?._id || booking?.id || ''),
+              String(booking?.status || ''),
+            ])
+          );
+
+          const changedToAttentionStatus = nextBookings.some((booking) => {
+            const bookingId = String(booking?._id || booking?.id || '');
+            if (!bookingId) return false;
+
+            const previousStatus = previousById.get(bookingId);
+            const nextStatus = String(booking?.status || '');
+            return (
+              previousStatus &&
+              previousStatus !== nextStatus &&
+              ['confirmed', 'rejected'].includes(nextStatus)
+            );
+          });
+
+          if (changedToAttentionStatus) {
+            if (bookingAudioUnlockedRef.current) {
+              notifyStatusChange();
+            } else {
+              pendingBookingSoundRef.current = true;
+            }
+          }
+        } else {
+          bookingSoundReadyRef.current = true;
+        }
+
+        bookingsSnapshotRef.current = nextBookings;
+        setBookings(nextBookings);
       }
     } catch (refreshError) {
       console.error('Failed to refresh bookings:', refreshError);
     }
-  }, [token]);
+  }, [notifyStatusChange, token]);
 
   useEffect(() => {
     if (!token) return undefined;

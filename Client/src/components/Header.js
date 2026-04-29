@@ -167,7 +167,24 @@ function Header() {
   const handleSearch = (e) => {
     e.preventDefault();
     const query = searchQuery.trim();
-    navigate(query ? `/products?search=${encodeURIComponent(query)}` : '/products');
+    
+    // Only navigate if there's actual input
+    if (!query) {
+      setShowSuggestions(false);
+      return;
+    }
+
+    // Count matching services vs products from suggestions
+    const serviceMatches = suggestions.filter(s => s.type === 'service').length;
+    const productMatches = suggestions.filter(s => s.type === 'product').length;
+
+    // Route to services if more service matches, otherwise products
+    if (serviceMatches > productMatches) {
+      navigate(`/services?search=${encodeURIComponent(query)}`);
+    } else {
+      navigate(`/products?search=${encodeURIComponent(query)}`);
+    }
+    
     setShowSuggestions(false);
   };
 
@@ -209,6 +226,64 @@ function Header() {
     setShowUserMenu(false);
     navigate('/');
   };
+
+  useEffect(() => {
+    if (!authUser || authUser.userType !== 'professional') return undefined;
+
+    let mounted = true;
+
+    const forceLogoutIfRejected = async () => {
+      try {
+        const userToken = localStorage.getItem('userToken') || localStorage.getItem('token');
+        if (!userToken) return;
+
+        const response = await fetch(`${API_BASE_URL}/users/profile`, {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!mounted) return;
+
+        if (!response.ok) {
+          if (response.status === 403 || response.status === 401) {
+            disconnectSocket();
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setAuthUser(null);
+            setIsAdminSession(false);
+            setShowUserMenu(false);
+            navigate('/login');
+          }
+          return;
+        }
+
+        const profile = await response.json();
+        if (String(profile?.approvalStatus || '').toLowerCase() === 'rejected') {
+          disconnectSocket();
+          localStorage.removeItem('userToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setAuthUser(null);
+          setIsAdminSession(false);
+          setShowUserMenu(false);
+          navigate('/login');
+        }
+      } catch (error) {
+        // Ignore transient failures.
+      }
+    };
+
+    forceLogoutIfRejected();
+    const timer = window.setInterval(forceLogoutIfRejected, 15000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, [authUser, navigate]);
 
   return (
     <header className="header">

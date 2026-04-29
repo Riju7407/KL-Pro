@@ -75,6 +75,18 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    adminArchived: {
+      type: Boolean,
+      default: false,
+    },
+    adminArchivedAt: {
+      type: Date,
+      default: null,
+    },
+    adminArchivedBy: {
+      type: String,
+      default: '',
+    },
     notes: {
       type: String,
     },

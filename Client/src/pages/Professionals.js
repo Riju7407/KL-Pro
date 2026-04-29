@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { professionalService, serviceService } from '../api/services';
 import { getSocket } from '../api/socket';
 import API_BASE_URL from '../config/apiConfig';
@@ -159,6 +159,50 @@ const priceRanges = {
   premium: [1201, Number.POSITIVE_INFINITY],
 };
 
+const SERVICE_INTENT_KEYWORDS = {
+  "women's salon & spa": ['hair', 'beauty', 'spa', 'makeup', 'waxing', 'facial'],
+  'womens salon & spa': ['hair', 'beauty', 'spa', 'makeup', 'waxing', 'facial'],
+  'women-salon': ['hair', 'beauty', 'spa', 'makeup', 'waxing', 'facial'],
+  'salon for women': ['hair', 'beauty', 'spa', 'makeup', 'waxing', 'facial'],
+  'spa services': ['spa', 'massage', 'therapy', 'relaxation'],
+  'spa-services': ['spa', 'massage', 'therapy', 'relaxation'],
+  'hair services': ['hair', 'stylist', 'cut', 'trim', 'keratin'],
+  'hair-services': ['hair', 'stylist', 'cut', 'trim', 'keratin'],
+  makeup: ['makeup', 'bridal', 'party', 'styling'],
+  'home cleaning': ['cleaning', 'bathroom', 'kitchen', 'mopping', 'dusting'],
+  'home-cleaning': ['cleaning', 'bathroom', 'kitchen', 'mopping', 'dusting'],
+  'cleaning essentials': ['cleaning', 'bathroom', 'kitchen', 'mopping', 'dusting'],
+  "men's grooming": ['grooming', 'hair', 'beard', 'shave', 'massage'],
+  'men grooming': ['grooming', 'hair', 'beard', 'shave', 'massage'],
+  'men-grooming': ['grooming', 'hair', 'beard', 'shave', 'massage'],
+  'grooming for men': ['grooming', 'hair', 'beard', 'shave', 'massage'],
+  'cleaning-essentials': ['cleaning', 'bathroom', 'kitchen', 'mopping', 'dusting'],
+  'grooming-for-men': ['grooming', 'hair', 'beard', 'shave', 'massage'],
+  'salon-for-women': ['hair', 'beauty', 'spa', 'makeup', 'waxing', 'facial'],
+};
+
+const normalizeSearchText = (value) => String(value || '').trim().toLowerCase();
+
+const tokenizeSearchText = (value) =>
+  normalizeSearchText(value)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+const getKeywordsForQuery = (params) => {
+  const values = [params.get('focus'), params.get('service'), params.get('category'), params.get('q')]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+
+  const keywords = values.flatMap((value) => {
+    const normalized = normalizeSearchText(value);
+    return SERVICE_INTENT_KEYWORDS[normalized] || tokenizeSearchText(value);
+  });
+
+  return [...new Set(keywords.filter(Boolean))];
+};
+
 const getProfessionalId = (bookingProfessional) => {
   if (!bookingProfessional) return null;
   if (typeof bookingProfessional === 'string') return bookingProfessional;
@@ -256,6 +300,7 @@ const normalizeProfessional = (professional, servicePriceMap, index) => {
 
 function Professionals() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [allProfessionals, setAllProfessionals] = useState(FALLBACK_PROFESSIONALS);
   const [professionals, setProfessionals] = useState(FALLBACK_PROFESSIONALS);
   const [detectedCity, setDetectedCity] = useState('');
@@ -269,6 +314,17 @@ function Professionals() {
   const [minRating, setMinRating] = useState('all');
   const [bookingHistory, setBookingHistory] = useState([]);
   const [onlineMap, setOnlineMap] = useState({});
+  const [serviceIntentKeywords, setServiceIntentKeywords] = useState([]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const queryText = String(params.get('service') || params.get('q') || params.get('focus') || '').trim();
+    const specialization = String(params.get('specialization') || '').trim();
+
+    setSearchTerm(queryText);
+    setSelectedSpecialization(specialization || 'all');
+    setServiceIntentKeywords(getKeywordsForQuery(params));
+  }, [location.search]);
 
   const loadProfessionals = useCallback(async () => {
     try {
@@ -504,14 +560,19 @@ function Professionals() {
   const filteredProfessionals = useMemo(() => {
     const [minPrice, maxPrice] = priceRanges[selectedPriceRange] || priceRanges.all;
     const normalizedRating = minRating === 'all' ? 0 : Number(minRating);
+    const searchTokens = tokenizeSearchText(searchTerm);
 
     const filtered = professionals.filter((professional) => {
-      const searchValue = searchTerm.trim().toLowerCase();
-      const textMatch =
-        !searchValue ||
-        professional.name.toLowerCase().includes(searchValue) ||
-        professional.specialization.toLowerCase().includes(searchValue) ||
-        (professional.skills || []).some((skill) => skill.toLowerCase().includes(searchValue));
+      const searchableText = [professional.name, professional.specialization, ...(professional.skills || [])]
+        .map((value) => String(value || '').toLowerCase());
+
+      const searchMatch =
+        !searchTokens.length ||
+        searchTokens.some((token) => searchableText.some((field) => field.includes(token)));
+
+      const intentMatch =
+        !serviceIntentKeywords.length ||
+        serviceIntentKeywords.some((token) => searchableText.some((field) => field.includes(token)));
 
       const specializationMatch =
         selectedSpecialization === 'all' ||
@@ -531,7 +592,7 @@ function Professionals() {
         );
       const onlineMatch = professional.isOnline;
 
-      return textMatch && specializationMatch && priceMatch && ratingMatch && locationMatch && onlineMatch;
+      return searchMatch && intentMatch && specializationMatch && priceMatch && ratingMatch && locationMatch && onlineMatch;
     });
 
     const withPersonalization = filtered.map((professional) => {
@@ -558,7 +619,17 @@ function Professionals() {
       const bScore = b.recommendationScore + b.rating * 20 + b.completedBookings * 0.03 + (5 - b.startingPrice / 1000);
       return bScore - aScore;
     });
-  }, [professionals, searchTerm, selectedSpecialization, selectedPriceRange, minRating, sortBy, personalizationContext, detectedCity]);
+  }, [
+    professionals,
+    searchTerm,
+    serviceIntentKeywords,
+    selectedSpecialization,
+    selectedPriceRange,
+    minRating,
+    sortBy,
+    personalizationContext,
+    detectedCity,
+ ]);
 
   const recommendedProfessionals = useMemo(() => {
     if (!bookingHistory.length) return [];

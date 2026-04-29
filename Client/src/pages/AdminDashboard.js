@@ -15,7 +15,7 @@ function AdminDashboard() {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('shop');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('adminActiveTab') || 'shop');
   const [theme, setTheme] = useState(() => localStorage.getItem('adminTheme') || 'light');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
@@ -31,9 +31,12 @@ function AdminDashboard() {
   const [contacts, setContacts] = useState([]);
   const [homepageCards, setHomepageCards] = useState([]);
   const [editingHomepageCard, setEditingHomepageCard] = useState(null);
+  const [homepageCardImageFile, setHomepageCardImageFile] = useState(null);
   const [showHomepageCardForm, setShowHomepageCardForm] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [bookingActionLoadingId, setBookingActionLoadingId] = useState(null);
   const [kycCallingId, setKycCallingId] = useState('');
+  const [kycScheduleDrafts, setKycScheduleDrafts] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,9 +71,49 @@ function AdminDashboard() {
   }, [theme]);
 
   useEffect(() => {
+    localStorage.setItem('adminActiveTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
     setSelectedUser(null);
     setEditingUser(null);
   }, [activeTab]);
+
+  const refreshAdminData = async () => {
+    await Promise.allSettled([
+      fetchUsers(),
+      fetchStatistics(),
+      fetchServices(),
+      fetchProducts(),
+      fetchProfessionalApplications(),
+      fetchBookings(),
+      fetchContacts(),
+      fetchHomepageCards(),
+    ]);
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) return undefined;
+
+    let mounted = true;
+    const interval = window.setInterval(() => {
+      if (!mounted) return;
+      refreshAdminData().catch(() => {});
+    }, 15000);
+
+    const handleFocus = () => {
+      refreshAdminData().catch(() => {});
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   const fetchAdminProfile = async () => {
     const token = localStorage.getItem('adminToken');
@@ -193,6 +236,62 @@ function AdminDashboard() {
     setBookings(data.bookings || []);
   };
 
+  const handleSelectBooking = async (booking) => {
+    const bookingId = String(booking?._id || booking?.id || '');
+    if (!bookingId) return;
+
+    setSelectedBooking(booking || null);
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/bookings/${bookingId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load booking details');
+      }
+
+      const data = await response.json();
+      setSelectedBooking(data.booking || null);
+    } catch (bookingError) {
+      setError(bookingError.message || 'Failed to load booking details');
+    }
+  };
+
+  const handleDeleteBooking = async (bookingId) => {
+    if (!window.confirm('Delete this booking history permanently?')) {
+      return;
+    }
+
+    try {
+      setBookingActionLoadingId(bookingId);
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/bookings/${bookingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || 'Failed to delete booking history');
+      }
+
+      setBookings((prev) => prev.filter((booking) => String(booking._id) !== String(bookingId)));
+      setSelectedBooking((current) => (current && String(current._id) === String(bookingId) ? null : current));
+      refreshAdminData().catch(() => {});
+    } catch (bookingDeleteError) {
+      setError(bookingDeleteError.message || 'Failed to delete booking history');
+    } finally {
+      setBookingActionLoadingId(null);
+    }
+  };
+
   const fetchContacts = async () => {
     try {
       const token = localStorage.getItem('adminToken');
@@ -234,13 +333,24 @@ function AdminDashboard() {
   const handleCreateHomepageCard = async () => {
     try {
       const token = localStorage.getItem('adminToken');
+      const formData = new FormData();
+      formData.append('section', editingHomepageCard.section);
+      formData.append('title', editingHomepageCard.title);
+      formData.append('subtitle', editingHomepageCard.subtitle || '');
+      formData.append('image', editingHomepageCard.image || '');
+      formData.append('time', editingHomepageCard.time || '');
+      formData.append('order', editingHomepageCard.order ?? 0);
+      formData.append('isActive', String(editingHomepageCard.isActive));
+      if (homepageCardImageFile) {
+        formData.append('imageFile', homepageCardImageFile);
+      }
+
       const response = await fetch(`${API_BASE_URL}/admin/homepage-cards`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editingHomepageCard),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -249,6 +359,7 @@ function AdminDashboard() {
 
       await fetchHomepageCards();
       setEditingHomepageCard(null);
+      setHomepageCardImageFile(null);
       setShowHomepageCardForm(false);
       alert('Homepage card created successfully');
     } catch (err) {
@@ -259,13 +370,24 @@ function AdminDashboard() {
   const handleUpdateHomepageCard = async () => {
     try {
       const token = localStorage.getItem('adminToken');
+      const formData = new FormData();
+      formData.append('section', editingHomepageCard.section);
+      formData.append('title', editingHomepageCard.title);
+      formData.append('subtitle', editingHomepageCard.subtitle || '');
+      formData.append('image', editingHomepageCard.image || '');
+      formData.append('time', editingHomepageCard.time || '');
+      formData.append('order', editingHomepageCard.order ?? 0);
+      formData.append('isActive', String(editingHomepageCard.isActive));
+      if (homepageCardImageFile) {
+        formData.append('imageFile', homepageCardImageFile);
+      }
+
       const response = await fetch(`${API_BASE_URL}/admin/homepage-cards/${editingHomepageCard._id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editingHomepageCard),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -274,6 +396,7 @@ function AdminDashboard() {
 
       await fetchHomepageCards();
       setEditingHomepageCard(null);
+      setHomepageCardImageFile(null);
       alert('Homepage card updated successfully');
     } catch (err) {
       setError(err.message || 'Failed to update homepage card');
@@ -330,17 +453,35 @@ function AdminDashboard() {
     }
   };
 
-  const handleReviewProfessional = async (applicationId, status) => {
+  const updateKycScheduleDraft = (applicationId, field, value) => {
+    setKycScheduleDrafts((prev) => ({
+      ...prev,
+      [applicationId]: {
+        ...(prev[applicationId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleReviewProfessional = async (applicationId, status, stage = 'initial') => {
     try {
       setApplicationActionLoadingId(applicationId);
       const token = localStorage.getItem('adminToken');
+      const scheduleDraft = kycScheduleDrafts[applicationId] || {};
       const response = await fetch(`${API_BASE_URL}/admin/professionals/${applicationId}/review`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({
+          status,
+          stage,
+          verificationDate: scheduleDraft.verificationDate || '',
+          verificationTime: scheduleDraft.verificationTime || '',
+          verificationMeetingLink: scheduleDraft.verificationMeetingLink || '',
+          note: scheduleDraft.note || '',
+        })
       });
 
       if (!response.ok) {
@@ -349,6 +490,13 @@ function AdminDashboard() {
       }
 
       await Promise.all([fetchProfessionalApplications(), fetchUsers(), fetchStatistics()]);
+      if (stage === 'initial' && status === 'approved') {
+        setKycScheduleDrafts((prev) => {
+          const next = { ...prev };
+          delete next[applicationId];
+          return next;
+        });
+      }
       alert(`Professional application ${status} successfully`);
     } catch (err) {
       setError(err.message || 'Failed to review professional application');
@@ -689,7 +837,10 @@ function AdminDashboard() {
   const pendingProfessionalApplications = professionalApplications.filter(
     (application) => application.approvalStatus === 'pending'
   );
-  const pendingApplicationsCount = pendingProfessionalApplications.length;
+  const scheduledProfessionalApplications = professionalApplications.filter(
+    (application) => application.approvalStatus === 'approved' && application.verificationStatus === 'scheduled'
+  );
+  const verificationQueueCount = pendingProfessionalApplications.length + scheduledProfessionalApplications.length;
 
   const adminEmail = localStorage.getItem('adminEmail') || 'Administrator';
   const totalServices = services.length;
@@ -779,7 +930,7 @@ function AdminDashboard() {
     { id: 'orders', icon: '📦', label: 'Booking', count: bookings.length },
     { id: 'customers', icon: '👥', label: 'Customers', count: customerUsers.length },
     { id: 'contacts', icon: '✉️', label: 'Contacts', count: contacts.length },
-    { id: 'professionals', icon: '🧑‍🔧', label: 'Professionals', count: professionalUsers.length, pendingCount: pendingApplicationsCount },
+    { id: 'professionals', icon: '🧑‍🔧', label: 'Professionals', count: professionalUsers.length, pendingCount: verificationQueueCount },
     { id: 'catalog', icon: '🧾', label: 'Services', count: services.length },
     { id: 'homecards', icon: '🏠', label: 'Home Cards', count: homepageCards.length },
     { id: 'products', icon: '📦', label: 'Products', count: productCount },
@@ -925,11 +1076,11 @@ function AdminDashboard() {
             </div>
           </div>
 
-          {pendingApplicationsCount > 0 && (
+          {verificationQueueCount > 0 && (
             <div className="admin-top-notification" role="status" aria-live="polite">
               <div>
-                <strong>{pendingApplicationsCount} professional registration request{pendingApplicationsCount > 1 ? 's' : ''} pending</strong>
-                <p>Review PAN/Aadhaar documents and approve or reject from Customer Management.</p>
+                <strong>{verificationQueueCount} professional verification task{verificationQueueCount > 1 ? 's' : ''} pending</strong>
+                <p>Approve new applications, schedule KYC calls, and complete the final verification review.</p>
               </div>
               <button
                 type="button"
@@ -1006,65 +1157,161 @@ function AdminDashboard() {
                   <h2>Orders</h2>
                   <button type="button" className="theme-toggle-btn" onClick={fetchBookings}>Refresh</button>
                 </div>
-                <div className="services-list">
-                  {bookings.length === 0 ? (
-                    <p>No bookings found.</p>
-                  ) : (
-                    bookings.map((booking) => (
-                      <div key={booking._id} className="service-item" onClick={() => setSelectedBooking(booking)}>
-                        <div className="service-item-info">
-                          <h4>{booking?.serviceId?.name || 'Service'}</h4>
-                          <p>Status: {booking.status}</p>
-                          <p>Customer: {booking?.customerId?.name || 'N/A'}</p>
-                          <p>Professional: {booking?.professionalId?.userId?.name || 'N/A'}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <div className="booking-workspace">
+                  <div className="booking-list-panel">
+                    <div className="booking-list-panel__header">
+                      <h3>Booking History</h3>
+                      <p>Select a booking to inspect the workflow, OTPs, and work photos.</p>
+                    </div>
 
-                {selectedBooking && (
-                  <div className="service-detail-view" style={{ marginTop: 16 }}>
-                    <button className="back-btn" onClick={() => setSelectedBooking(null)}>← Close</button>
-                    <h3>Booking Workflow Details</h3>
-                    <p><strong>Status:</strong> {selectedBooking.status}</p>
-                    <p><strong>Start OTP:</strong> {selectedBooking.startOtp || 'N/A'}</p>
-                    <p><strong>Final OTP:</strong> {selectedBooking.completionOtp || 'N/A'}</p>
-                    <p><strong>Start OTP Verified At:</strong> {selectedBooking.startOtpVerifiedAt ? new Date(selectedBooking.startOtpVerifiedAt).toLocaleString() : 'N/A'}</p>
-                    <p><strong>Final OTP Verified At:</strong> {selectedBooking.completionOtpVerifiedAt ? new Date(selectedBooking.completionOtpVerifiedAt).toLocaleString() : 'N/A'}</p>
-                    {selectedBooking.workStartPhotoUrl ? (
-                      <div>
-                        <p><strong>Start Work Photo</strong></p>
-                        <img src={selectedBooking.workStartPhotoUrl} alt="Work start" style={{ maxWidth: 220, borderRadius: 8 }} />
-                      </div>
-                    ) : null}
-                    {selectedBooking.workEndPhotoUrl ? (
-                      <div>
-                        <p><strong>Work Completion Photo</strong></p>
-                        <img src={selectedBooking.workEndPhotoUrl} alt="Work end" style={{ maxWidth: 220, borderRadius: 8 }} />
-                      </div>
-                    ) : null}
-                    <div style={{ marginTop: 12 }}>
-                      <p><strong>Audit Timeline</strong></p>
-                      {Array.isArray(selectedBooking.auditLogs) && selectedBooking.auditLogs.length > 0 ? (
-                        <div>
-                          {selectedBooking.auditLogs
-                            .slice()
-                            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                            .map((entry, index) => (
-                              <p key={`${entry.action}-${entry.createdAt || index}`} style={{ marginBottom: 6 }}>
-                                [{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'N/A'}] {entry.action}
-                                {entry.actorRole ? ` by ${entry.actorRole}` : ''}
-                                {entry.notes ? ` - ${entry.notes}` : ''}
-                              </p>
-                            ))}
-                        </div>
+                    <div className="services-list booking-services-list">
+                      {bookings.length === 0 ? (
+                        <p>No bookings found.</p>
                       ) : (
-                        <p>No audit events yet.</p>
+                        bookings.map((booking) => (
+                          <div
+                            key={booking._id}
+                            className={`service-item booking-card ${selectedBooking && String(selectedBooking._id) === String(booking._id) ? 'selected' : ''}`}
+                            onClick={() => handleSelectBooking(booking)}
+                          >
+                            <div className="service-item-info">
+                              <h4>{booking?.serviceId?.name || 'Service'}</h4>
+                              <p>Status: {booking.status}</p>
+                              <p>Customer: {booking?.customerId?.name || 'N/A'}</p>
+                              <p>Professional: {booking?.professionalId?.userId?.name || 'N/A'}</p>
+                            </div>
+                            <div className="service-item-actions booking-card__actions">
+                              <button
+                                type="button"
+                                className="btn-view"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleSelectBooking(booking);
+                                }}
+                              >
+                                View Details
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-delete-small"
+                                disabled={bookingActionLoadingId === booking._id}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDeleteBooking(booking._id);
+                                }}
+                              >
+                                {bookingActionLoadingId === booking._id ? 'Deleting...' : 'Delete History'}
+                              </button>
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
                   </div>
-                )}
+
+                  <aside className={`booking-detail-panel ${selectedBooking ? 'is-open' : 'is-empty'}`}>
+                    {selectedBooking ? (
+                      <>
+                        <div className="booking-detail-panel__header">
+                          <div>
+                            <p className="booking-detail-panel__eyebrow">Booking Details</p>
+                            <h3>{selectedBooking?.serviceId?.name || 'Service Booking'}</h3>
+                            <p className="booking-detail-panel__subtext">
+                              Customer and professional workflow, OTPs, proof images, and audit trail.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            className="booking-detail-close-btn"
+                            onClick={() => setSelectedBooking(null)}
+                          >
+                            Close
+                          </button>
+                        </div>
+
+                        <div className="booking-detail-panel__body">
+                          <div className="booking-metric-grid">
+                            <div className="booking-metric-card">
+                              <span>Status</span>
+                              <strong>{selectedBooking.status}</strong>
+                            </div>
+                            <div className="booking-metric-card">
+                              <span>Latest Start OTP</span>
+                              <strong>{selectedBooking.startOtp || 'N/A'}</strong>
+                            </div>
+                            <div className="booking-metric-card">
+                              <span>Latest Final OTP</span>
+                              <strong>{selectedBooking.completionOtp || 'N/A'}</strong>
+                            </div>
+                          </div>
+
+                          <div className="booking-info-stack">
+                            <p><strong>Start OTP Verified At:</strong> {selectedBooking.startOtpVerifiedAt ? new Date(selectedBooking.startOtpVerifiedAt).toLocaleString() : 'N/A'}</p>
+                            <p><strong>Final OTP Verified At:</strong> {selectedBooking.completionOtpVerifiedAt ? new Date(selectedBooking.completionOtpVerifiedAt).toLocaleString() : 'N/A'}</p>
+                          </div>
+
+                          <div className="booking-photo-grid">
+                            <div className="booking-photo-card">
+                              <p>Latest Start Photo</p>
+                              {selectedBooking.workStartPhotoUrl ? (
+                                <img src={selectedBooking.workStartPhotoUrl} alt="Work start" />
+                              ) : (
+                                <span>No start photo uploaded yet.</span>
+                              )}
+                            </div>
+                            <div className="booking-photo-card">
+                              <p>Latest Final Photo</p>
+                              {selectedBooking.workEndPhotoUrl ? (
+                                <img src={selectedBooking.workEndPhotoUrl} alt="Work end" />
+                              ) : (
+                                <span>No final photo uploaded yet.</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="booking-detail-actions">
+                            <button
+                              type="button"
+                              className="btn-delete"
+                              disabled={bookingActionLoadingId === selectedBooking._id}
+                              onClick={() => handleDeleteBooking(selectedBooking._id)}
+                            >
+                              {bookingActionLoadingId === selectedBooking._id ? 'Deleting...' : 'Delete Booking History'}
+                            </button>
+                          </div>
+
+                          <div className="booking-audit-panel">
+                            <h4>Audit Timeline</h4>
+                            {Array.isArray(selectedBooking.auditLogs) && selectedBooking.auditLogs.length > 0 ? (
+                              <div className="booking-audit-list">
+                                {selectedBooking.auditLogs
+                                  .slice()
+                                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                  .map((entry, index) => (
+                                    <div key={`${entry.action}-${entry.createdAt || index}`} className="booking-audit-item">
+                                      <strong>{entry.action}</strong>
+                                      <span>
+                                        {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'N/A'}
+                                        {entry.actorRole ? ` • ${entry.actorRole}` : ''}
+                                      </span>
+                                      {entry.notes ? <p>{entry.notes}</p> : null}
+                                    </div>
+                                  ))}
+                              </div>
+                            ) : (
+                              <p>No audit events yet.</p>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="booking-detail-empty">
+                        <h3>No booking selected</h3>
+                        <p>Choose a booking from the list to open a focused detail view here.</p>
+                      </div>
+                    )}
+                  </aside>
+                </div>
               </section>
             )}
 
@@ -1324,6 +1571,7 @@ function AdminDashboard() {
                         <th>PAN Image</th>
                         <th>Aadhaar</th>
                         <th>Aadhaar Image</th>
+                        <th>KYC Schedule</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -1365,6 +1613,81 @@ function AdminDashboard() {
                             )}
                           </td>
                           <td>
+                            <div className="kyc-schedule-inline">
+                              <input
+                                type="date"
+                                value={kycScheduleDrafts[application._id]?.verificationDate || ''}
+                                onChange={(e) => updateKycScheduleDraft(application._id, 'verificationDate', e.target.value)}
+                              />
+                              <input
+                                type="time"
+                                value={kycScheduleDrafts[application._id]?.verificationTime || ''}
+                                onChange={(e) => updateKycScheduleDraft(application._id, 'verificationTime', e.target.value)}
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="Optional meeting note"
+                              value={kycScheduleDrafts[application._id]?.note || ''}
+                              onChange={(e) => updateKycScheduleDraft(application._id, 'note', e.target.value)}
+                              style={{ marginTop: 8, width: '100%' }}
+                            />
+                          </td>
+                          <td>
+                            <button
+                              className="btn-view"
+                              type="button"
+                              disabled={applicationActionLoadingId === application._id}
+                              onClick={() => handleReviewProfessional(application._id, 'approved', 'initial')}
+                            >
+                              Approve & Schedule
+                            </button>
+                            <button
+                              className="btn-delete-small"
+                              type="button"
+                              disabled={applicationActionLoadingId === application._id}
+                              onClick={() => handleReviewProfessional(application._id, 'rejected', 'initial')}
+                            >
+                              Reject
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="professional-applications-panel" style={{ marginTop: 24 }}>
+              <h3>KYC Verification Queue</h3>
+              {scheduledProfessionalApplications.length === 0 ? (
+                <p className="professional-applications-empty">No scheduled KYC verifications yet.</p>
+              ) : (
+                <div className="users-table-container">
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Schedule</th>
+                        <th>Notification</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scheduledProfessionalApplications.map((application) => (
+                        <tr key={`kyc-${application._id}`}>
+                          <td>{application.userId?.name || 'Unknown'}</td>
+                          <td>
+                            <span className="badge">{application.verificationStatus || 'scheduled'}</span>
+                          </td>
+                          <td>
+                            <div>{application.verificationScheduledAt ? new Date(application.verificationScheduledAt).toLocaleDateString() : 'TBD'}</div>
+                            <div>{application.verificationScheduledTime || 'TBD'}</div>
+                          </td>
+                          <td>{application.verificationNotification || 'KYC verification scheduled.'}</td>
+                          <td>
                             <button
                               className="btn-view"
                               type="button"
@@ -1377,15 +1700,15 @@ function AdminDashboard() {
                               className="btn-view"
                               type="button"
                               disabled={applicationActionLoadingId === application._id}
-                              onClick={() => handleReviewProfessional(application._id, 'approved')}
+                              onClick={() => handleReviewProfessional(application._id, 'approved', 'final')}
                             >
-                              Approve
+                              Final Approve
                             </button>
                             <button
                               className="btn-delete-small"
                               type="button"
                               disabled={applicationActionLoadingId === application._id}
-                              onClick={() => handleReviewProfessional(application._id, 'rejected')}
+                              onClick={() => handleReviewProfessional(application._id, 'rejected', 'final')}
                             >
                               Reject
                             </button>
@@ -1574,6 +1897,7 @@ function AdminDashboard() {
                     order: 0,
                     isActive: true,
                   });
+                  setHomepageCardImageFile(null);
                 }}
               >
                 Add Card
@@ -1618,6 +1942,17 @@ function AdminDashboard() {
                     value={editingHomepageCard.image || ''}
                     onChange={(e) => setEditingHomepageCard({ ...editingHomepageCard, image: e.target.value })}
                   />
+                </div>
+                <div className="form-group">
+                  <label>Upload Image (optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setHomepageCardImageFile(e.target.files?.[0] || null)}
+                  />
+                  {homepageCardImageFile && (
+                    <p style={{ marginTop: 8 }}><strong>Selected file:</strong> {homepageCardImageFile.name}</p>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Time (optional)</label>

@@ -166,6 +166,46 @@ router.get('/professional/my-jobs', authMiddleware, async (req, res) => {
   }
 });
 
+// Public slot availability for a professional on a specific date
+router.get('/public/professional/:professionalId/slots', async (req, res) => {
+  try {
+    const { professionalId } = req.params;
+    const selectedDate = String(req.query.date || '').trim();
+
+    if (!selectedDate) {
+      return res.status(400).json({ message: 'date is required' });
+    }
+
+    const professional = await Professional.findById(professionalId).select('_id');
+    if (!professional) {
+      return res.status(404).json({ message: 'Professional not found' });
+    }
+
+    const bookings = await Booking.find({
+      professionalId,
+      scheduledDate: {
+        $gte: startOfDay(selectedDate),
+        $lte: endOfDay(selectedDate),
+      },
+      status: { $in: ACTIVE_BLOCKING_STATUSES },
+    })
+      .select('_id scheduledTime status customerId')
+      .sort({ scheduledTime: 1 });
+
+    res.json({
+      success: true,
+      date: selectedDate,
+      bookedSlots: bookings.map((booking) => ({
+        bookingId: String(booking._id),
+        scheduledTime: booking.scheduledTime,
+        status: booking.status,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Update booking status by professional
 router.put('/professional/:id/status', authMiddleware, async (req, res) => {
   try {
@@ -487,18 +527,6 @@ router.post('/', authMiddleware, async (req, res) => {
     const professional = await Professional.findById(professionalId).select('_id userId');
     if (!professional) {
       return res.status(404).json({ message: 'Professional not found' });
-    }
-
-    const activeBookingForProfessional = await Booking.findOne({
-      professionalId,
-      status: { $in: ACTIVE_BLOCKING_STATUSES },
-    });
-
-    if (activeBookingForProfessional) {
-      return res.status(409).json({
-        message:
-          'Professional is currently unavailable due to an active booking request. Please try another professional.',
-      });
     }
 
     const conflict = await Booking.findOne({

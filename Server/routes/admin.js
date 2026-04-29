@@ -34,6 +34,7 @@ const {
   updateHomepageCard,
   deleteHomepageCard,
 } = require('../controllers/homepageCardController');
+const { endCallSession } = require('../services/callSessionService');
 const verifyAdminToken = require('../middleware/adminAuth');
 
 // Debug middleware
@@ -87,14 +88,14 @@ router.delete('/contacts/:id', verifyAdminToken, deleteContact);
 
 // Admin Homepage Cards Management
 router.get('/homepage-cards', verifyAdminToken, getHomepageCardsAdmin);
-router.post('/homepage-cards', verifyAdminToken, createHomepageCard);
-router.put('/homepage-cards/:id', verifyAdminToken, updateHomepageCard);
+router.post('/homepage-cards', verifyAdminToken, upload.single('imageFile'), createHomepageCard);
+router.put('/homepage-cards/:id', verifyAdminToken, upload.single('imageFile'), updateHomepageCard);
 router.delete('/homepage-cards/:id', verifyAdminToken, deleteHomepageCard);
 
 // Booking workflow visibility for admin
 router.get('/bookings', verifyAdminToken, async (req, res) => {
   try {
-    const bookings = await Booking.find()
+    const bookings = await Booking.find({ adminArchived: { $ne: true } })
       .populate('customerId', 'name email phone city')
       .populate({
         path: 'professionalId',
@@ -124,6 +125,34 @@ router.get('/bookings/:id', verifyAdminToken, async (req, res) => {
     }
 
     res.json({ success: true, booking });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/bookings/:id', verifyAdminToken, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.json({ success: true, message: 'Booking history already removed' });
+    }
+
+    if (booking.adminArchived) {
+      return res.json({ success: true, message: 'Booking history already removed' });
+    }
+
+    endCallSession('booking', booking._id, {
+      reason: 'booking-deleted-by-admin',
+      endedBy: req.admin?.email || 'admin',
+    });
+
+    booking.adminArchived = true;
+    booking.adminArchivedAt = new Date();
+    booking.adminArchivedBy = req.admin?.email || 'admin';
+    await booking.save();
+
+    res.json({ success: true, message: 'Booking history deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

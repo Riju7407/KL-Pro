@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Professional = require('../models/Professional');
 const { endCallSession } = require('../services/callSessionService');
+const { emitToUser, emitToAdmins } = require('../realtime/presence');
 
 // Admin Login
 const adminLogin = (req, res) => {
@@ -222,13 +223,33 @@ const updateUser = async (req, res) => {
 // Delete User
 const deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
 
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
+    }
+
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    user.deletedBy = req.admin?.email || '';
+    user.approvalStatus = 'rejected';
+    user.verificationStatus = 'rejected';
+    await user.save();
+
+    if (user.userType === 'professional') {
+      const professional = await Professional.findOne({ userId: user._id });
+      if (professional) {
+        professional.isDeleted = true;
+        professional.deletedAt = new Date();
+        professional.deletedBy = req.admin?.email || '';
+        professional.approvalStatus = 'rejected';
+        professional.verificationStatus = 'rejected';
+        professional.verificationNotification = 'Account deleted by admin.';
+        await professional.save();
+      }
     }
 
     res.status(200).json({
@@ -302,11 +323,37 @@ const getProfessionalApplications = async (req, res) => {
   }
 };
 
+const buildVerificationSchedule = (verificationDate, verificationTime) => {
+  if (!verificationDate || !verificationTime) {
+    return null;
+  }
+
+  const scheduledAt = new Date(`${verificationDate}T${verificationTime}:00`);
+  if (Number.isNaN(scheduledAt.getTime())) {
+    return null;
+  }
+
+  return scheduledAt;
+};
+
+const formatVerificationLabel = (scheduledAt, fallbackTime) => {
+  if (!scheduledAt) {
+    return fallbackTime || 'Soon';
+  }
+
+  return scheduledAt.toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+};
+
 // Approve or reject professional application
 const reviewProfessionalApplication = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, note } = req.body;
+    const { status, note, stage, verificationDate, verificationTime, verificationMeetingLink } = req.body;
+
+    const normalizedStage = String(stage || '').trim().toLowerCase() || 'initial';
 
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({
@@ -323,33 +370,129 @@ const reviewProfessionalApplication = async (req, res) => {
       });
     }
 
-    professional.approvalStatus = status;
-    professional.approvalNote = note || '';
-    professional.reviewedByAdminEmail = req.admin?.email || '';
-    professional.reviewedAt = new Date();
-    await professional.save();
+    const user = await User.findById(professional.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Professional account not found',
+      });
+    }
 
-    endCallSession('kyc', professional._id, {
-      reason: `kyc-${status}`,
-      endedBy: req.admin?.email || 'admin',
+    const adminEmail = req.admin?.email || '';
+    let notificationMessage = '';
+
+    if (normalizedStage === 'final') {
+      if (professional.verificationStatus !== 'scheduled') {
+        return res.status(409).json({
+          success: false,
+          message: 'Final review is only available after a scheduled video verification',
+        });
+      }
+
+      if (status === 'approved') {
+        professional.verificationStatus = 'completed';
+        professional.verificationCompletedAt = new Date();
+        professional.approvalNote = note || professional.approvalNote || 'Video verification approved';
+        notificationMessage = 'Video verification completed. This professional is now visible to customers.';
+
+        user.approvalStatus = 'approved';
+        user.verificationStatus = 'completed';
+        user.approvalNote = note || 'Video verification approved';
+        user.isVerified = true;
+      } else {
+        professional.verificationStatus = 'rejected';
+        professional.approvalStatus = 'rejected';
+        professional.approvalNote = note || 'Video verification rejected';
+        professional.verificationNotification = 'Video verification rejected. Account suspended.';
+        notificationMessage = professional.verificationNotification;
+
+        user.approvalStatus = 'rejected';
+        user.verificationStatus = 'rejected';
+        user.approvalNote = note || 'Video verification rejected';
+        user.isVerified = false;
+      }
+
+      endCallSession('kyc', professional._id, {
+        reason: `kyc-${status}`,
+        endedBy: adminEmail || 'admin',
+      });
+    } else {
+      if (status === 'approved') {
+        const scheduledAt = buildVerificationSchedule(verificationDate, verificationTime);
+        if (!scheduledAt) {
+          return res.status(400).json({
+            success: false,
+            message: 'Verification date and time are required when approving and scheduling KYC',
+          });
+        }
+
+        professional.approvalStatus = 'approved';
+        professional.verificationStatus = 'scheduled';
+        professional.verificationScheduledAt = scheduledAt;
+        professional.verificationScheduledTime = verificationTime;
+        professional.verificationMeetingLink = String(verificationMeetingLink || '').trim();
+        professional.approvalNote = note || 'Approved and scheduled for video verification';
+        notificationMessage = `Video verification scheduled for ${formatVerificationLabel(scheduledAt, verificationTime)}.`;
+
+        user.approvalStatus = 'approved';
+        user.verificationStatus = 'scheduled';
+        user.approvalNote = note || 'Approved and scheduled for video verification';
+        user.isVerified = false;
+      } else {
+        professional.approvalStatus = 'rejected';
+        professional.verificationStatus = 'rejected';
+        professional.approvalNote = note || 'Application rejected by admin';
+        notificationMessage = 'Your professional registration has been rejected by admin.';
+
+        user.approvalStatus = 'rejected';
+  user.verificationStatus = 'rejected';
+        user.approvalNote = note || 'Application rejected by admin';
+        user.isVerified = false;
+
+        endCallSession('kyc', professional._id, {
+          reason: `application-${status}`,
+          endedBy: adminEmail || 'admin',
+        });
+      }
+    }
+
+    professional.reviewedByAdminEmail = adminEmail;
+    professional.reviewedAt = new Date();
+    professional.verificationNotification = notificationMessage || professional.verificationNotification || '';
+    await professional.save();
+    await user.save();
+
+    const populatedUser = await User.findById(user._id).select('-password');
+
+    emitToUser(String(user._id), 'professional-verification-updated', {
+      professionalId: String(professional._id),
+      userId: String(user._id),
+      stage: normalizedStage,
+      status,
+      approvalStatus: professional.approvalStatus,
+      verificationStatus: professional.verificationStatus,
+      notificationMessage: professional.verificationNotification,
+      verificationScheduledAt: professional.verificationScheduledAt,
+      verificationScheduledTime: professional.verificationScheduledTime,
     });
 
-    const userUpdate = {
-      approvalStatus: status,
-      approvalNote: note || '',
-      isVerified: status === 'approved',
-    };
-
-    const user = await User.findByIdAndUpdate(professional.userId, userUpdate, {
-      new: true,
-      runValidators: true,
-    }).select('-password');
+    emitToAdmins('professional-verification-updated', {
+      professionalId: String(professional._id),
+      professionalName: user.name || 'Professional',
+      stage: normalizedStage,
+      status,
+      approvalStatus: professional.approvalStatus,
+      verificationStatus: professional.verificationStatus,
+      notificationMessage: professional.verificationNotification,
+      verificationScheduledAt: professional.verificationScheduledAt,
+      verificationScheduledTime: professional.verificationScheduledTime,
+    });
 
     res.status(200).json({
       success: true,
       message: `Professional application ${status} successfully`,
       professional,
-      user,
+      user: populatedUser,
     });
   } catch (error) {
     console.error('Review professional application error:', error);

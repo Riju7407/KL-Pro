@@ -92,6 +92,11 @@ function ProfessionalDashboard() {
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState('');
   const [approvalStatus, setApprovalStatus] = useState('approved');
+  const [verificationStatus, setVerificationStatus] = useState('pending');
+  const [verificationScheduledAt, setVerificationScheduledAt] = useState('');
+  const [verificationScheduledTime, setVerificationScheduledTime] = useState('');
+  const [verificationNotification, setVerificationNotification] = useState('');
+  const [verificationMeetingLink, setVerificationMeetingLink] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -152,6 +157,14 @@ function ProfessionalDashboard() {
 
         if (!profileResponse.ok) {
           if (profileResponse.status === 401) {
+            disconnectSocket();
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login');
+            return;
+          }
+          if (profileResponse.status === 403) {
             disconnectSocket();
             localStorage.removeItem('userToken');
             localStorage.removeItem('token');
@@ -223,8 +236,22 @@ function ProfessionalDashboard() {
               : [],
           });
           setApprovalStatus(professionalData?.approvalStatus || profileData.approvalStatus || 'approved');
+          setVerificationStatus(professionalData?.verificationStatus || 'pending');
+          setVerificationScheduledAt(professionalData?.verificationScheduledAt || '');
+          setVerificationScheduledTime(professionalData?.verificationScheduledTime || '');
+          setVerificationNotification(professionalData?.verificationNotification || '');
+          setVerificationMeetingLink(professionalData?.verificationMeetingLink || '');
           setProfileImagePreview(professionalData?.userId?.profileImage || profileData?.profileImage || '');
           setProfessionalRecordId(String(professionalData?._id || ''));
+
+          if (String(professionalData?.approvalStatus || profileData.approvalStatus || '').toLowerCase() === 'rejected') {
+            disconnectSocket();
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login');
+            return;
+          }
         } else if (professionalResponse.status !== 404) {
           setError('Unable to load existing professional profile details.');
         }
@@ -239,25 +266,79 @@ function ProfessionalDashboard() {
   }, [navigate, token]);
 
   useEffect(() => {
-    const playNotificationSound = () => {
+    if (!token) return undefined;
+
+    let mounted = true;
+
+    const syncVerificationState = async () => {
       try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.2);
-      } catch (soundError) {
-        console.error('Notification sound failed:', soundError);
+        const profileResponse = await fetch(`${API_BASE_URL}/users/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!profileResponse.ok) {
+          if (profileResponse.status === 403) {
+            disconnectSocket();
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login');
+          }
+          return;
+        }
+
+        const profileData = await profileResponse.json();
+        if (String(profileData?.approvalStatus || '').toLowerCase() === 'rejected') {
+          disconnectSocket();
+          localStorage.removeItem('userToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          navigate('/login');
+          return;
+        }
+
+        const professionalResponse = await fetch(`${API_BASE_URL}/professionals/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!professionalResponse.ok) return;
+
+        const professionalData = await professionalResponse.json();
+        if (!mounted) return;
+
+        setApprovalStatus(professionalData?.approvalStatus || profileData.approvalStatus || 'approved');
+        setVerificationStatus(professionalData?.verificationStatus || 'pending');
+        setVerificationScheduledAt(professionalData?.verificationScheduledAt || '');
+        setVerificationScheduledTime(professionalData?.verificationScheduledTime || '');
+        setVerificationNotification(professionalData?.verificationNotification || '');
+        setVerificationMeetingLink(professionalData?.verificationMeetingLink || '');
+      } catch (syncError) {
+        console.error('Failed to sync professional verification state:', syncError);
       }
     };
 
-    const interval = setInterval(async () => {
-      if (!token) return;
+    const timer = setInterval(syncVerificationState, 20000);
+    syncVerificationState();
+
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, [navigate, token]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+
+    const socket = getSocket(token);
+    let mounted = true;
+
+    const refreshJobs = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/bookings/professional/my-jobs`, {
           headers: {
@@ -268,26 +349,27 @@ function ProfessionalDashboard() {
 
         if (!response.ok) return;
         const jobsData = await response.json();
-        const incomingJobs = Array.isArray(jobsData?.bookings) ? jobsData.bookings : [];
-
-        setJobs((prevJobs) => {
-          const previousPendingIds = new Set(prevJobs.filter((job) => job.status === 'pending').map((job) => job._id));
-          const newPending = incomingJobs.filter(
-            (job) => job.status === 'pending' && !previousPendingIds.has(job._id)
-          );
-
-          if (newPending.length > 0) {
-            playNotificationSound();
-          }
-
-          return incomingJobs;
-        });
+        if (!mounted) return;
+        setJobs(Array.isArray(jobsData?.bookings) ? jobsData.bookings : []);
+        setApprovalStatus(jobsData?.approvalStatus || 'approved');
+        setProfessionalRecordId(String(jobsData?.professionalId || ''));
       } catch (pollError) {
-        console.error('Polling jobs failed:', pollError);
+        console.error('Refreshing jobs failed:', pollError);
       }
-    }, 20000);
+    };
 
-    return () => clearInterval(interval);
+    const handleJobUpdate = () => {
+      refreshJobs();
+    };
+
+    socket.on('booking-request-created', handleJobUpdate);
+    socket.on('booking-status-changed', handleJobUpdate);
+
+    return () => {
+      mounted = false;
+      socket.off('booking-request-created', handleJobUpdate);
+      socket.off('booking-status-changed', handleJobUpdate);
+    };
   }, [token]);
 
   const stats = useMemo(() => {
@@ -792,7 +874,7 @@ function ProfessionalDashboard() {
           <p className="pro-kicker">Professional Workspace</p>
           <h1>Welcome, {profile.name}</h1>
           <p>Manage your service requests, update status, and track completed earnings.</p>
-          {approvalStatus === 'pending' && (
+          {verificationStatus === 'scheduled' && (
             <button
               type="button"
               className="pro-edit-btn"
@@ -803,11 +885,67 @@ function ProfessionalDashboard() {
               {isKycCalling ? 'Connecting KYC Call...' : 'Start Video KYC Call With Admin'}
             </button>
           )}
+          <a 
+            href="https://wa.me/8738030604" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="whatsapp-button pro-whatsapp"
+            title="Emergency Time Connect With Whatsapp AI Doctor"
+            style={{ marginTop: 12, display: 'inline-block' }}
+          >
+            <span>🔔 Emergency Time - Connect With Whatsapp AI Doctor</span>
+          </a>
+          <a 
+            href="https://play.google.com/store/apps/details?id=in.cdac.ners.psa.mobile.android.national" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="app-download-button pro-app-download"
+            title="Download The App For Safety"
+            style={{ marginTop: 12, display: 'inline-block', marginLeft: 8 }}
+          >
+            <span>📱 Click Link & Download The App For Safety</span>
+          </a>
         </div>
         <div className={`pro-approval ${approvalStatus}`}>
-          Status: {approvalStatus}
+          <div>Status: {approvalStatus}</div>
+          <div>Verification: {verificationStatus}</div>
         </div>
       </section>
+
+      {verificationStatus === 'scheduled' && (
+        <section className="pro-profile-editor" style={{ marginTop: 0 }}>
+          <div className="pro-editor-header">
+            <h2>Video Verification Scheduled</h2>
+            <p>
+              Your first approval is complete. Join the scheduled admin video call below so the final review can be completed.
+            </p>
+          </div>
+          <div className="pro-profile-summary">
+            <p><strong>Scheduled Date:</strong> {verificationScheduledAt ? new Date(verificationScheduledAt).toLocaleDateString() : 'Not set'}</p>
+            <p><strong>Scheduled Time:</strong> {verificationScheduledTime || 'Not set'}</p>
+            <p><strong>Notification:</strong> {verificationNotification || 'Awaiting admin confirmation.'}</p>
+            <p><strong>Video Call Option:</strong> {verificationMeetingLink || 'Use the button in the header to start the call.'}</p>
+          </div>
+        </section>
+      )}
+
+      {verificationStatus === 'completed' && (
+        <section className="pro-profile-editor" style={{ marginTop: 0 }}>
+          <div className="pro-editor-header">
+            <h2>Verification Completed</h2>
+            <p>Your professional profile is now visible to customers.</p>
+          </div>
+        </section>
+      )}
+
+      {verificationStatus === 'rejected' && (
+        <section className="pro-profile-editor" style={{ marginTop: 0 }}>
+          <div className="pro-editor-header">
+            <h2>Account Suspended</h2>
+            <p>Your video verification was rejected. Contact admin support for next steps.</p>
+          </div>
+        </section>
+      )}
 
       {error && <div className="professional-error">{error}</div>}
 
