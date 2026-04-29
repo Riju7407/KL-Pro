@@ -113,7 +113,7 @@ function AdminDashboard() {
       window.clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
     };
-  }, []);
+  }, [refreshAdminData]);
 
   const fetchAdminProfile = async () => {
     const token = localStorage.getItem('adminToken');

@@ -115,16 +115,6 @@ const makeTimeLabel = (minutes) => {
   return `${hours12}:${minutesPart} ${period}`;
 };
 
-const makeDeterministicSeed = (value) => {
-  const input = String(value || 'seed');
-  let hash = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-};
-
 const formatRatingSummary = (ratingValue, reviewsCount) => {
   const safeRating = Number(ratingValue) || 0;
   const safeReviews = Number(reviewsCount) || 0;

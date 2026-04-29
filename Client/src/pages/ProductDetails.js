@@ -134,11 +134,6 @@ function ProductDetails() {
     </div>
   );
 
-  const getHighlights = () => {
-    if (!product) return '';
-    return [product.category, product.subcategory, product.size].filter(Boolean).join(' • ');
-  };
-
   const onReviewSubmit = () => {
     setReviewPage(1);
     fetchProduct();
