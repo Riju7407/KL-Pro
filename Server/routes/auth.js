@@ -27,6 +27,17 @@ const uploadImageToCloudinary = (fileBuffer, folderName) => {
   });
 };
 
+const normalizeArrayField = (fieldValue) => {
+  if (!fieldValue) return [];
+  if (Array.isArray(fieldValue)) {
+    return fieldValue.map((item) => String(item).trim()).filter(Boolean);
+  }
+  return String(fieldValue)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 // Register
 router.post(
   '/register',
@@ -92,7 +103,12 @@ router.post(
       const aadhaarCardImageFile = req.files?.aadhaarCardImage?.[0];
       const profileImageFile = req.files?.profileImage?.[0];
 
-      if (!professionalCategory || !professionalSubCategory || !panCardNumber || !aadhaarCardNumber) {
+      const professionalCategories = normalizeArrayField(professionalCategory);
+      const professionalSubCategories = normalizeArrayField(professionalSubCategory);
+      const professionalSubSubCategories = normalizeArrayField(professionalSubSubCategory);
+      const professionalServiceTypes = normalizeArrayField(professionalServiceType);
+
+      if (!professionalCategories.length || !professionalSubCategories.length || !panCardNumber || !aadhaarCardNumber) {
         await User.findByIdAndDelete(user._id);
         return res.status(400).json({
           message: 'Professional category, subcategory, PAN card and Aadhaar card are required',
@@ -141,11 +157,19 @@ router.post(
 
       const professional = new Professional({
         userId: user._id,
-        specializations: [professionalSubCategory, professionalSubSubCategory, professionalServiceType].filter(Boolean),
-        category: professionalCategory,
-        subCategory: professionalSubCategory,
-        subSubCategory: professionalSubSubCategory || '',
-        serviceType: professionalServiceType || '',
+        specializations: [
+          ...professionalSubCategories,
+          ...professionalSubSubCategories,
+          ...professionalServiceTypes,
+        ].filter(Boolean),
+        categories: professionalCategories,
+        subCategories: professionalSubCategories,
+        subSubCategories: professionalSubSubCategories,
+        serviceTypes: professionalServiceTypes,
+        category: String(professionalCategories[0] || professionalCategory || '').trim(),
+        subCategory: String(professionalSubCategories[0] || professionalSubCategory || '').trim(),
+        subSubCategory: String(professionalSubSubCategories[0] || professionalSubSubCategory || '').trim() || '',
+        serviceType: String(professionalServiceTypes[0] || professionalServiceType || '').trim() || '',
         currentCity: currentCity || city || '',
         panCardNumber: String(panCardNumber).trim().toUpperCase(),
         panCardImageUrl,

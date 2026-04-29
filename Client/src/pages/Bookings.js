@@ -16,7 +16,7 @@ const formatDateInput = (dateObj) => {
 
 const createTimeOptions = () => {
   const slots = [];
-  for (let minutes = 9 * 60; minutes <= 21 * 60; minutes += 30) {
+  for (let minutes = 0; minutes < 24 * 60; minutes += 30) {
     const hours24 = Math.floor(minutes / 60);
     const minutePart = String(minutes % 60).padStart(2, '0');
     const period = hours24 >= 12 ? 'PM' : 'AM';

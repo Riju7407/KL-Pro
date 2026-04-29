@@ -281,10 +281,31 @@ export function getServiceTypeOptions(category, subCategory, subSubCategory) {
 }
 
 export function getHierarchyOptions(category, subCategory, subSubCategory) {
-  const categoryTree = SERVICE_HIERARCHY[category] || {};
-  const subCategories = Object.keys(categoryTree);
+  const normalizeToArray = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+    return String(value).split(',').map((item) => item.trim()).filter(Boolean);
+  };
 
-  if (!subCategory || subCategory === "all") {
+  const categoryList = normalizeToArray(category);
+  const subCategoryList = normalizeToArray(subCategory);
+  const subSubCategoryList = normalizeToArray(subSubCategory);
+
+  if (!categoryList.length) {
+    return {
+      subCategories: [],
+      subSubCategories: [],
+      serviceTypes: [],
+    };
+  }
+
+  const subCategories = Array.from(
+    new Set(
+      categoryList.flatMap((categoryKey) => Object.keys(SERVICE_HIERARCHY[categoryKey] || {}))
+    )
+  );
+
+  if (!subCategoryList.length) {
     return {
       subCategories,
       subSubCategories: [],
@@ -292,9 +313,37 @@ export function getHierarchyOptions(category, subCategory, subSubCategory) {
     };
   }
 
+  const subSubCategories = Array.from(
+    new Set(
+      categoryList.flatMap((categoryKey) =>
+        subCategoryList.flatMap((subCategoryKey) => SERVICE_HIERARCHY[categoryKey]?.[subCategoryKey] || [])
+      )
+    )
+  );
+
+  if (!subSubCategoryList.length) {
+    return {
+      subCategories,
+      subSubCategories,
+      serviceTypes: [],
+    };
+  }
+
+  const serviceTypes = Array.from(
+    new Set(
+      categoryList.flatMap((categoryKey) =>
+        subCategoryList.flatMap((subCategoryKey) =>
+          subSubCategoryList.flatMap((subSubCategoryKey) =>
+            getServiceTypeOptions(categoryKey, subCategoryKey, subSubCategoryKey)
+          )
+        )
+      )
+    )
+  );
+
   return {
     subCategories,
-    subSubCategories: categoryTree[subCategory] || [],
-    serviceTypes: getServiceTypeOptions(category, subCategory, subSubCategory),
+    subSubCategories,
+    serviceTypes,
   };
 }

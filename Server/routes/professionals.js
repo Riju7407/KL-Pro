@@ -41,6 +41,17 @@ const resolveProfessionalCity = (professionalDoc) => {
   ).trim();
 };
 
+const normalizeArrayField = (fieldValue) => {
+  if (!fieldValue) return [];
+  if (Array.isArray(fieldValue)) {
+    return fieldValue.map((item) => String(item).trim()).filter(Boolean);
+  }
+  return String(fieldValue)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 const profileImageUpload = (req, res, next) => {
   upload.single('profileImage')(req, res, (uploadError) => {
     if (uploadError) {
@@ -294,15 +305,26 @@ router.post('/', authMiddleware, async (req, res) => {
       services,
       category,
       subCategory,
+      subSubCategory,
+      serviceType,
+      categories,
+      subCategories,
+      subSubCategories,
+      serviceTypes,
       panCardNumber,
       aadhaarCardNumber,
       panCardImageUrl,
       aadhaarCardImageUrl,
     } = req.body;
 
+    const normalizedCategories = normalizeArrayField(categories || category);
+    const normalizedSubCategories = normalizeArrayField(subCategories || subCategory);
+    const normalizedSubSubCategories = normalizeArrayField(subSubCategories || subSubCategory);
+    const normalizedServiceTypes = normalizeArrayField(serviceTypes || serviceType);
+
     if (
-      !category ||
-      !subCategory ||
+      !normalizedCategories.length ||
+      !normalizedSubCategories.length ||
       !panCardNumber ||
       !aadhaarCardNumber ||
       !panCardImageUrl ||
@@ -316,12 +338,18 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const professional = new Professional({
       userId: req.userId,
-      specializations,
+      specializations: normalizeArrayField(specializations),
       experience,
       bio,
       services,
+      categories: normalizedCategories,
+      subCategories: normalizedSubCategories,
+      subSubCategories: normalizedSubSubCategories,
+      serviceTypes: normalizedServiceTypes,
       category,
       subCategory,
+      subSubCategory,
+      serviceType,
       panCardNumber,
       panCardImageUrl,
       aadhaarCardNumber,

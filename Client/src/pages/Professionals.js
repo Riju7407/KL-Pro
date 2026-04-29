@@ -273,12 +273,29 @@ const normalizeProfessional = (professional, servicePriceMap, index) => {
     .split(/[^a-z0-9]+/)
     .filter(Boolean);
 
+  const categories = Array.isArray(professional?.categories)
+    ? professional.categories
+    : professional?.category ? [professional.category] : [];
+  const subCategories = Array.isArray(professional?.subCategories)
+    ? professional.subCategories
+    : professional?.subCategory ? [professional.subCategory] : [];
+  const subSubCategories = Array.isArray(professional?.subSubCategories)
+    ? professional.subSubCategories
+    : professional?.subSubCategory ? [professional.subSubCategory] : [];
+  const serviceTypes = Array.isArray(professional?.serviceTypes)
+    ? professional.serviceTypes
+    : professional?.serviceType ? [professional.serviceType] : [];
+
   return {
     id: professional?._id || `fallback-${index}`,
     userId: professional?.userId?._id || '',
     name,
     specialization: skills[0],
     skills,
+    categories,
+    subCategories,
+    subSubCategories,
+    serviceTypes,
     rating,
     reviews: reviewsCount,
     availabilityText: buildAvailabilityText(professional?.availability),

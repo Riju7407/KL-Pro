@@ -1,0 +1,158 @@
+.location-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.location-popup-overlay.flash {
+  animation: locationFlash 1s ease-in-out;
+}
+
+@keyframes locationFlash {
+  0% { background: rgba(0, 0, 0, 0.5); }
+  50% { background: rgba(246, 42, 42, 0.7); }
+  100% { background: rgba(0, 0, 0, 0.5); }
+}
+
+.location-popup {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  max-width: 450px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.location-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.location-popup-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.location-popup-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.location-popup-close:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.location-popup-content {
+  padding: 20px 24px;
+}
+
+.location-popup-description {
+  margin: 0 0 16px;
+  color: #6b7280;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.location-popup-current {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.location-popup-actions {
+  margin-bottom: 16px;
+}
+
+.location-popup-button {
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.location-popup-button.primary {
+  background: linear-gradient(120deg, #f06b42 0%, #e25124 100%);
+  color: #fff;
+}
+
+.location-popup-button.primary:hover:not(:disabled) {
+  background: linear-gradient(120deg, #e25124 0%, #d1411a 100%);
+}
+
+.location-popup-button.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.location-popup-button.confirm {
+  background: #10b981;
+  color: #fff;
+  margin-top: 12px;
+}
+
+.location-popup-button.confirm:hover {
+  background: #059669;
+}
+
+.location-popup-detected {
+  background: #ecfdf5;
+  border: 1px solid #d1fae5;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.location-popup-detected p {
+  margin: 0 0 12px;
+  color: #065f46;
+  font-size: 14px;
+}
+
+.location-popup-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 16px;
+}
+
+.location-popup-error p {
+  margin: 0;
+  color: #dc2626;
+  font-size: 14px;
+}

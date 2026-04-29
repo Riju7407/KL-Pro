@@ -5,6 +5,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import FloatingToggle from './components/FloatingToggle';
 import ProfessionalRequestAlert from './components/ProfessionalRequestAlert';
+import FirstVisitLocationPrompt from './components/FirstVisitLocationPrompt';
 import Home from './pages/Home';
 import Services from './pages/Services';
 import Professionals from './pages/Professionals';
@@ -64,6 +65,7 @@ function App() {
                   <Footer />
                   <FloatingToggle />
                   <ProfessionalRequestAlert />
+                  <FirstVisitLocationPrompt />
                 </>
               }
             />

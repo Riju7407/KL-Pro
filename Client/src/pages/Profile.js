@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/apiConfig';
 import { disconnectSocket } from '../api/socket';
+import LocationPopup from '../components/LocationPopup';
 import './Profile.css';
 
 const formatCurrency = (amount) => `INR ${Number(amount || 0).toLocaleString('en-IN')}`;
@@ -19,7 +20,7 @@ function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [activeTab, setActiveTab] = useState('overview');
-  const [isDetectingCity, setIsDetectingCity] = useState(false);
+  const [showLocationPopup, setShowLocationPopup] = useState(false);
   const [savedProfessionals, setSavedProfessionals] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('savedProfessionals') || '[]');
@@ -167,66 +168,15 @@ function Profile() {
   };
 
   const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setError('Your browser does not support location detection.');
-      return;
-    }
+    setShowLocationPopup(true);
+  };
 
-    setIsDetectingCity(true);
-    setError('');
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=en&lat=${latitude}&lon=${longitude}`,
-            {
-              headers: {
-                Accept: 'application/json',
-                'Accept-Language': 'en',
-              },
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error('Failed to detect your current city');
-          }
-
-          const data = await response.json();
-          const cityFromGeo =
-            data?.address?.city ||
-            data?.address?.town ||
-            data?.address?.village ||
-            data?.address?.county ||
-            data?.address?.state ||
-            '';
-
-          if (!cityFromGeo) {
-            throw new Error('Could not detect city from your current location');
-          }
-
-          setEditData((prev) => ({
-            ...prev,
-            city: cityFromGeo,
-          }));
-          setSuccessMessage('Current city detected successfully. Save changes to update your profile.');
-        } catch (locationError) {
-          setError(locationError.message || 'Unable to detect your current city');
-        } finally {
-          setIsDetectingCity(false);
-        }
-      },
-      (locationError) => {
-        setIsDetectingCity(false);
-        setError(locationError.message || 'Please allow location permission to use current location');
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 10000,
-        maximumAge: 5 * 60 * 1000,
-      }
-    );
+  const handleLocationUpdate = (newLocation) => {
+    setEditData((prev) => ({
+      ...prev,
+      city: newLocation,
+    }));
+    setSuccessMessage('Location updated successfully. Save changes to update your profile.');
   };
 
   const handleSaveProfile = async () => {
@@ -551,9 +501,8 @@ function Profile() {
                     type="button"
                     className="btn-detect-city"
                     onClick={handleUseCurrentLocation}
-                    disabled={isDetectingCity}
                   >
-                    {isDetectingCity ? 'Detecting...' : 'Use My Current Location'}
+                    Use My Current Location
                   </button>
                 </div>
               </div>
@@ -679,6 +628,13 @@ function Profile() {
           <button className="btn-logout" onClick={handleLogout}>Logout</button>
         </div>
       )}
+
+      <LocationPopup
+        isOpen={showLocationPopup}
+        onClose={() => setShowLocationPopup(false)}
+        onLocationUpdate={handleLocationUpdate}
+        currentLocation={editData.city || profile?.city}
+      />
     </div>
   );
 }

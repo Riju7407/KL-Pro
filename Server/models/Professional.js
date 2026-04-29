@@ -12,6 +12,30 @@ const professionalSchema = new mongoose.Schema(
         type: String,
       },
     ],
+    categories: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    subCategories: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    subSubCategories: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    serviceTypes: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     category: {
       type: String,
       required: true,

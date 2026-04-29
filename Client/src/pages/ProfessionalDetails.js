@@ -15,8 +15,8 @@ const THUMBNAIL_PALETTES = [
   ['#2b5fb8', '#7aa7f4'],
 ];
 
-const SLOT_WINDOW_START = 9 * 60;
-const SLOT_WINDOW_END = 21 * 60;
+const SLOT_WINDOW_START = 0;
+const SLOT_WINDOW_END = 24 * 60 - 30;
 const SLOT_INTERVAL_MINUTES = 30;
 
 const FALLBACK_PROFESSIONALS = [
@@ -113,6 +113,12 @@ const makeTimeLabel = (minutes) => {
   const period = hours24 >= 12 ? 'PM' : 'AM';
   const hours12 = ((hours24 + 11) % 12) + 1;
   return `${hours12}:${minutesPart} ${period}`;
+};
+
+const normalizeArrayValue = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === 'string' && value.trim()) return [value.trim()];
+  return [];
 };
 
 const formatRatingSummary = (ratingValue, reviewsCount) => {
@@ -225,11 +231,6 @@ function ProfessionalDetails() {
   const [slotNotice, setSlotNotice] = useState('');
   const [liveNow, setLiveNow] = useState(Date.now());
   const [bookedSlots, setBookedSlots] = useState([]);
-
-  const [userRating, setUserRating] = useState(0);
-  const [ratingComment, setRatingComment] = useState('');
-  const [ratingLoading, setRatingLoading] = useState(false);
-  const [ratingMessage, setRatingMessage] = useState('');
 
   const [reviews, setReviews] = useState([]);
   const [currentReviewPage, setCurrentReviewPage] = useState(1);
@@ -421,60 +422,6 @@ function ProfessionalDetails() {
     navigate('/bookings');
   };
 
-  const handleSubmitRating = async () => {
-    try {
-      if (!professional) return;
-
-      if (!isLoggedIn) {
-        setRatingMessage('Please login to submit a rating.');
-        return;
-      }
-
-      if (userRating < 1 || userRating > 5) {
-        setRatingMessage('Choose a rating between 1 and 5 stars.');
-        return;
-      }
-
-      setRatingLoading(true);
-      setRatingMessage('');
-
-      const response = await fetch(`${API_BASE_URL}/professionals/${professional.id}/rate`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          rating: userRating,
-          comment: ratingComment,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to submit rating');
-      }
-
-      setProfessional((prev) =>
-        prev
-          ? {
-              ...prev,
-              rating: Number(data.rating) || prev.rating,
-              reviews: Number(data.reviewsCount) || prev.reviews,
-            }
-          : prev
-      );
-
-      setUserRating(Number(data.userRating) || userRating);
-      setRatingMessage(data.message || 'Rating submitted successfully.');
-    } catch (submitError) {
-      setRatingMessage(submitError.message || 'Failed to submit rating.');
-    } finally {
-      setRatingLoading(false);
-    }
-  };
-
   if (loading) {
     return <p className="professional-details-message">Loading professional details...</p>;
   }
@@ -539,48 +486,53 @@ function ProfessionalDetails() {
         ))}
       </div>
 
-      <div className="details-panel rating-panel">
-        <h3>Rate this Professional</h3>
-        {!isLoggedIn ? (
-          <div className="rating-login-note">
-            <p>Login required to submit rating.</p>
-            <button type="button" onClick={() => navigate('/login')}>Login</button>
-          </div>
-        ) : (
-          <>
-            {userRating > 0 && (
-              <p className="user-rating-highlight">Your rating: {userRating}/5 - edit your previous rating below.</p>
-            )}
-            <div className="rating-stars-row">
-              {[1, 2, 3, 4, 5].map((value) => (
-                <button
-                  key={`star-${value}`}
-                  type="button"
-                  className={`star-btn ${userRating >= value ? 'active' : ''}`}
-                  onClick={() => setUserRating(value)}
-                >
-                  ★
-                </button>
-              ))}
+      {(normalizeArrayValue(professional.categories || professional.category).length > 0 ||
+        normalizeArrayValue(professional.subCategories || professional.subCategory).length > 0 ||
+        normalizeArrayValue(professional.subSubCategories || professional.subSubCategory).length > 0 ||
+        normalizeArrayValue(professional.serviceTypes || professional.serviceType).length > 0) && (
+        <section className="details-category-panel">
+          {normalizeArrayValue(professional.categories || professional.category).length > 0 && (
+            <div className="category-block">
+              <small>Categories</small>
+              <div className="category-tags">
+                {normalizeArrayValue(professional.categories || professional.category).map((item) => (
+                  <span key={`category-${item}`}>{item}</span>
+                ))}
+              </div>
             </div>
-            <textarea
-              rows="2"
-              placeholder="Optional feedback"
-              value={ratingComment}
-              onChange={(event) => setRatingComment(event.target.value)}
-            />
-            <button
-              type="button"
-              className="submit-rating-btn"
-              onClick={handleSubmitRating}
-              disabled={ratingLoading}
-            >
-              {ratingLoading ? 'Submitting...' : 'Submit Rating'}
-            </button>
-          </>
-        )}
-        {ratingMessage && <p className="rating-message">{ratingMessage}</p>}
-      </div>
+          )}
+          {normalizeArrayValue(professional.subCategories || professional.subCategory).length > 0 && (
+            <div className="category-block">
+              <small>Subcategories</small>
+              <div className="category-tags">
+                {normalizeArrayValue(professional.subCategories || professional.subCategory).map((item) => (
+                  <span key={`subcategory-${item}`}>{item}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {normalizeArrayValue(professional.subSubCategories || professional.subSubCategory).length > 0 && (
+            <div className="category-block">
+              <small>Sub-Subcategories</small>
+              <div className="category-tags">
+                {normalizeArrayValue(professional.subSubCategories || professional.subSubCategory).map((item) => (
+                  <span key={`subsubcategory-${item}`}>{item}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {normalizeArrayValue(professional.serviceTypes || professional.serviceType).length > 0 && (
+            <div className="category-block">
+              <small>Next Subcategories</small>
+              <div className="category-tags">
+                {normalizeArrayValue(professional.serviceTypes || professional.serviceType).map((item) => (
+                  <span key={`serviceType-${item}`}>{item}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="details-panel slot-picker">
         <div className="slot-picker-head">
@@ -619,9 +571,15 @@ function ProfessionalDetails() {
             </button>
           ))}
         </div>
-      </div>
 
-      {slotNotice && <p className="slot-notice">{slotNotice}</p>}
+        {slotNotice && <p className="slot-notice">{slotNotice}</p>}
+
+        <div className="slot-actions">
+          <button type="button" className="primary" onClick={handleContinueBooking}>
+            Continue to Booking
+          </button>
+        </div>
+      </div>
 
       <div className="reviews-section" style={{ marginTop: '40px' }}>
         <h2>Reviews & Ratings</h2>
@@ -654,12 +612,6 @@ function ProfessionalDetails() {
             onPageChange={setCurrentReviewPage}
           />
         )}
-      </div>
-
-      <div className="details-actions">
-        <button type="button" className="primary" onClick={handleContinueBooking}>
-          Continue to Booking
-        </button>
       </div>
     </div>
   );

@@ -147,7 +147,7 @@ const getAdminProfile = (req, res) => {
 // Get All Users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await User.find({ isDeleted: { $ne: true } }).select('-password');
     res.status(200).json({
       success: true,
       count: users.length,

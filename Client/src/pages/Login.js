@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import API_BASE_URL from '../config/apiConfig';
 import { SERVICE_HIERARCHY, getHierarchyOptions } from '../config/serviceHierarchy';
 import './Login.css';
@@ -17,18 +18,22 @@ function Login() {
     phone: '',
     city: '',
     userType: 'customer',
-    professionalCategory: '',
-    professionalSubCategory: '',
-    professionalSubSubCategory: '',
-    professionalServiceType: '',
+    professionalCategory: [],
+    professionalSubCategory: [],
+    professionalSubSubCategory: [],
+    professionalServiceType: [],
     profileImage: null,
     panCardNumber: '',
     aadhaarCardNumber: '',
     panCardImage: null,
     aadhaarCardImage: null,
     experience: '',
-    bio: ''
+    bio: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,24 +62,71 @@ function Login() {
     });
   };
 
-  const toggleMode = () => setIsLogin(!isLogin);
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    setError('');
+    setSuccess('');
+    setEmailError('');
+    setPhoneError('');
+  };
 
   useEffect(() => {
     const mode = (searchParams.get('mode') || '').toLowerCase();
     setIsLogin(mode !== 'signup');
   }, [searchParams]);
 
+  // Validation functions
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      return 'Email is required';
+    }
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return '';
+  };
+
+  const validatePhone = (phone) => {
+    const phoneRegex = /^(\+91[-\s]?)?[6-9]\d{9}$/;
+    if (!phone) {
+      return 'Phone number is required';
+    }
+    if (!phoneRegex.test(phone)) {
+      return 'Please enter a valid 10-digit phone number (starting with 6-9)';
+    }
+    return '';
+  };
+
+  const toggleArrayValue = (currentValue, targetValue) => {
+    const normalizedCurrent = Array.isArray(currentValue) ? currentValue : currentValue ? [currentValue] : [];
+    return normalizedCurrent.includes(targetValue)
+      ? normalizedCurrent.filter((item) => item !== targetValue)
+      : [...normalizedCurrent, targetValue];
+  };
+
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const normalizedValue = type === 'checkbox'
+      ? toggleArrayValue(formData[name], value)
+      : value;
+
+    // Real-time validation for email and phone
+    if (name === 'email') {
+      setEmailError(validateEmail(value));
+    }
+    if (name === 'phone') {
+      setPhoneError(validatePhone(value));
+    }
 
     if (name === 'userType' && value !== 'professional') {
       setFormData(prev => ({
         ...prev,
         [name]: value,
-        professionalCategory: '',
-        professionalSubCategory: '',
-        professionalSubSubCategory: '',
-        professionalServiceType: '',
+        professionalCategory: [],
+        professionalSubCategory: [],
+        professionalSubSubCategory: [],
+        professionalServiceType: [],
         profileImage: null,
         panCardNumber: '',
         aadhaarCardNumber: '',
@@ -89,10 +141,10 @@ function Login() {
     if (name === 'professionalCategory') {
       setFormData(prev => ({
         ...prev,
-        professionalCategory: value,
-        professionalSubCategory: '',
-        professionalSubSubCategory: '',
-        professionalServiceType: '',
+        professionalCategory: normalizedValue,
+        professionalSubCategory: [],
+        professionalSubSubCategory: [],
+        professionalServiceType: [],
       }));
       return;
     }
@@ -100,9 +152,9 @@ function Login() {
     if (name === 'professionalSubCategory') {
       setFormData(prev => ({
         ...prev,
-        professionalSubCategory: value,
-        professionalSubSubCategory: '',
-        professionalServiceType: '',
+        professionalSubCategory: normalizedValue,
+        professionalSubSubCategory: [],
+        professionalServiceType: [],
       }));
       return;
     }
@@ -110,16 +162,21 @@ function Login() {
     if (name === 'professionalSubSubCategory') {
       setFormData(prev => ({
         ...prev,
-        professionalSubSubCategory: value,
-        professionalServiceType: '',
+        professionalSubSubCategory: normalizedValue,
+        professionalServiceType: [],
       }));
       return;
     }
 
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: normalizedValue
     }));
+  };
+
+  const isArrayChecked = (field, value) => {
+    const current = formData[field];
+    return Array.isArray(current) && current.includes(value);
   };
 
   const handleFileChange = (e) => {
@@ -135,6 +192,8 @@ function Login() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setEmailError('');
+    setPhoneError('');
     setLoading(true);
 
 
@@ -215,16 +274,35 @@ function Login() {
         registerData.append('userType', formData.userType);
 
         if (formData.userType === 'professional') {
-          // Strict validation for all required fields
-          if (!formData.professionalCategory || !formData.professionalSubCategory || !formData.panCardNumber || !formData.aadhaarCardNumber || !formData.panCardImage || !formData.aadhaarCardImage) {
+          const selectedCategories = Array.isArray(formData.professionalCategory)
+            ? formData.professionalCategory
+            : formData.professionalCategory ? [formData.professionalCategory] : [];
+          const selectedSubCategories = Array.isArray(formData.professionalSubCategory)
+            ? formData.professionalSubCategory
+            : formData.professionalSubCategory ? [formData.professionalSubCategory] : [];
+
+          // Strict validation for all required professional fields
+          if (
+            !selectedCategories.length ||
+            !selectedSubCategories.length ||
+            !formData.panCardNumber ||
+            !formData.aadhaarCardNumber ||
+            !formData.panCardImage ||
+            !formData.aadhaarCardImage
+          ) {
             setError('All professional fields are required: Category, Subcategory, PAN number, Aadhaar number, PAN image, Aadhaar image.');
             setLoading(false);
             return;
           }
-          registerData.append('professionalCategory', formData.professionalCategory);
-          registerData.append('professionalSubCategory', formData.professionalSubCategory);
-          registerData.append('professionalSubSubCategory', formData.professionalSubSubCategory);
-          registerData.append('professionalServiceType', formData.professionalServiceType);
+
+          selectedCategories.forEach((category) => registerData.append('professionalCategory', category));
+          selectedSubCategories.forEach((subcategory) => registerData.append('professionalSubCategory', subcategory));
+          (Array.isArray(formData.professionalSubSubCategory) ? formData.professionalSubSubCategory : [formData.professionalSubSubCategory])
+            .filter(Boolean)
+            .forEach((subSubCategory) => registerData.append('professionalSubSubCategory', subSubCategory));
+          (Array.isArray(formData.professionalServiceType) ? formData.professionalServiceType : [formData.professionalServiceType])
+            .filter(Boolean)
+            .forEach((serviceType) => registerData.append('professionalServiceType', serviceType));
           registerData.append('currentCity', formData.city || '');
           if (formData.profileImage) {
             registerData.append('profileImage', formData.profileImage);
@@ -363,6 +441,7 @@ function Login() {
                   placeholder="Enter your phone number"
                   disabled={loading}
                 />
+                {phoneError && <div className="field-error">{phoneError}</div>}
               </div>
 
               <div className="form-group">
@@ -395,79 +474,83 @@ function Login() {
               {formData.userType === 'professional' && (
                 <>
                   <div className="form-group">
-                    <label htmlFor="professionalCategory">Professional Category</label>
-                    <select
-                      id="professionalCategory"
-                      name="professionalCategory"
-                      value={formData.professionalCategory}
-                      onChange={handleChange}
-                      required
-                      disabled={loading}
-                    >
-                      <option value="">Select category</option>
+                    <label>Professional Category</label>
+                    <div className="checkbox-group">
                       {professionalCategories.map((category) => (
-                        <option key={category} value={category}>
+                        <label key={category} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            name="professionalCategory"
+                            value={category}
+                            checked={isArrayChecked('professionalCategory', category)}
+                            onChange={handleChange}
+                            disabled={loading}
+                          />
                           {category}
-                        </option>
+                        </label>
                       ))}
-                    </select>
+                    </div>
+                    <small className="hint-text">Select one or more professional categories.</small>
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="professionalSubCategory">Professional Subcategory</label>
-                    <select
-                      id="professionalSubCategory"
-                      name="professionalSubCategory"
-                      value={formData.professionalSubCategory}
-                      onChange={handleChange}
-                      required
-                      disabled={loading || !formData.professionalCategory}
-                    >
-                      <option value="">Select subcategory</option>
+                    <label>Professional Subcategory</label>
+                    <div className="checkbox-group">
                       {professionalSubCategories.map((subCategory) => (
-                        <option key={subCategory} value={subCategory}>
+                        <label key={subCategory} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            name="professionalSubCategory"
+                            value={subCategory}
+                            checked={isArrayChecked('professionalSubCategory', subCategory)}
+                            onChange={handleChange}
+                            disabled={loading || !formData.professionalCategory.length}
+                          />
                           {subCategory}
-                        </option>
+                        </label>
                       ))}
-                    </select>
+                    </div>
+                    <small className="hint-text">Choose one or more professional subcategories.</small>
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="professionalSubSubCategory">Sub-Subcategory</label>
-                    <select
-                      id="professionalSubSubCategory"
-                      name="professionalSubSubCategory"
-                      value={formData.professionalSubSubCategory}
-                      onChange={handleChange}
-                      required={professionalSubSubCategories.length > 0}
-                      disabled={loading || !formData.professionalSubCategory}
-                    >
-                      <option value="">Select sub-subcategory</option>
+                    <label>Sub-Subcategory</label>
+                    <div className="checkbox-group">
                       {professionalSubSubCategories.map((subSubCategory) => (
-                        <option key={subSubCategory} value={subSubCategory}>
+                        <label key={subSubCategory} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            name="professionalSubSubCategory"
+                            value={subSubCategory}
+                            checked={isArrayChecked('professionalSubSubCategory', subSubCategory)}
+                            onChange={handleChange}
+                            disabled={loading || !formData.professionalSubCategory.length}
+                          />
                           {subSubCategory}
-                        </option>
+                        </label>
                       ))}
-                    </select>
+                    </div>
+                    <small className="hint-text">Choose one or more sub-subcategories.</small>
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="professionalServiceType">Next Subcategory</label>
-                    <select
-                      id="professionalServiceType"
-                      name="professionalServiceType"
-                      value={formData.professionalServiceType}
-                      onChange={handleChange}
-                      required={professionalServiceTypes.length > 0}
-                      disabled={loading || !formData.professionalSubSubCategory || !professionalServiceTypes.length}
-                    >
-                      <option value="">Select next subcategory</option>
+                    <label>Next Subcategory</label>
+                    <div className="checkbox-group">
                       {professionalServiceTypes.map((serviceType) => (
-                        <option key={serviceType} value={serviceType}>
+                        <label key={serviceType} className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            name="professionalServiceType"
+                            value={serviceType}
+                            checked={isArrayChecked('professionalServiceType', serviceType)}
+                            onChange={handleChange}
+                            disabled={loading || !formData.professionalSubSubCategory.length}
+                          />
                           {serviceType}
-                        </option>
+                        </label>
                       ))}
-                    </select>
+                    </div>
+                    <small className="hint-text">Choose one or more next subcategories.</small>
                   </div>
 
                   <div className="form-group">
@@ -579,35 +662,56 @@ function Login() {
               required
               disabled={loading}
             />
+            {emailError && <div className="field-error">{emailError}</div>}
           </div>
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              required
-              disabled={loading}
-            />
+            <div className="password-input-container">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter your password"
+                required
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={loading}
+              >
+                {showPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
+              </button>
+            </div>
           </div>
 
           {!isLogin && (
             <div className="form-group">
               <label htmlFor="confirmPassword">Confirm Password</label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Re-enter your password"
-                required
-                disabled={loading}
-              />
+              <div className="password-input-container">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Re-enter your password"
+                  required
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  disabled={loading}
+                >
+                  {showConfirmPassword ? <AiOutlineEyeInvisible /> : <AiOutlineEye />}
+                </button>
+              </div>
             </div>
           )}
 
