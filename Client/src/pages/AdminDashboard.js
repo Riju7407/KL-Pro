@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminServicesSection from '../components/AdminServicesSection';
 import AdminProductsSection from '../components/AdminProductsSection';
@@ -79,7 +79,7 @@ function AdminDashboard() {
     setEditingUser(null);
   }, [activeTab]);
 
-  const refreshAdminData = async () => {
+  const refreshAdminData = useCallback(async () => {
     await Promise.allSettled([
       fetchUsers(),
       fetchStatistics(),
@@ -90,7 +90,7 @@ function AdminDashboard() {
       fetchContacts(),
       fetchHomepageCards(),
     ]);
-  };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
