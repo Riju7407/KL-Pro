@@ -2084,6 +2084,25 @@
   border-color: var(--panel-border);
 }
 
+/* Dark mode table styling for better visibility */
+.admin-dashboard-container.theme-dark .users-table thead {
+  background: var(--panel-surface-soft) !important;
+  border-bottom: 2px solid var(--panel-accent);
+}
+
+.admin-dashboard-container.theme-dark .users-table tbody tr:hover {
+  background: var(--panel-surface-soft) !important;
+}
+
+.admin-dashboard-container.theme-dark .services-table thead {
+  background: var(--panel-surface-soft) !important;
+  border-bottom: 2px solid var(--panel-accent);
+}
+
+.admin-dashboard-container.theme-dark .services-table tbody tr:hover {
+  background: var(--panel-surface-soft) !important;
+}
+
 .admin-highlight-grid,
 .stats-grid,
 .charts-grid {
